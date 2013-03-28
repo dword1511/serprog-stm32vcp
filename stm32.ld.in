@@ -1,0 +1,35 @@
+/****************************************************************/
+/* Linker Script for STM32 MCU                                  */
+/*                                                              */
+/* modify init stack size here, not in startup_gcc.c by elecboy */
+/****************************************************************/ 
+
+/* Entry Point. Actually this does not matter. */
+ENTRY( ResetISR )
+
+/* ROM_OFFSET_SIZE will be replaced with real offset by the Makefile */
+_ROM_Offset_Size = ROM_OFFSET_SIZE ;
+
+__Stack_Size = 2048 ;
+
+PROVIDE ( _Stack_Size = __Stack_Size ) ;
+
+__Stack_Init = _estack  - __Stack_Size ;
+
+/* "PROVIDE" allows to easily override these values from an object file or the commmand line. */
+PROVIDE ( _Stack_Init = __Stack_Init ) ;
+
+/* There will be a link error if there is not this amount of RAM free at the end. */
+_Minimum_Stack_Size = 0x100 ;
+
+MEMORY {
+    FLASH (rx) : ORIGIN = 0x08000000 + ROM_OFFSET_SIZE,
+                 LENGTH = FLASH_SIZE - ROM_OFFSET_SIZE
+    SRAM (rwx) : ORIGIN = 0x20000000, LENGTH = SRAM_SIZE
+    MEMORY_B1 ( rx ) : ORIGIN = 0x60000000 , LENGTH = EXT_RAM_SIZE
+}
+
+/* higher address of the user mode stack */
+_estack = 0x20000000 + SRAM_SIZE;
+
+INCLUDE "stm32f-rom.ld"

@@ -1,0 +1,30 @@
+Board to chip:
+
+(PA4)----(nCS)|o\/-|(Vcc)----(3V3)
+(PA6)-----(DO)|25xx|(nHOLD)\/(3V3)
+(3V3)/\/\(nWP)|    |(CLK)----(PA5)
+(GND)----(Vss)|____|(DI)-----(PA7)
+
+--- means wire, \/\/ mean resistor(about 1k-10k).
+=================================================
+
+Board to status LED:
+
+(PB0)----\/220R\/----(LED+)-|>|-(LED-)----(GND)
+=================================================
+
+Board to USB:
+
+Only if your board does not have a USB port
+connected to the MCU itself.
+
+(PA11)----\/22R\/-------(D-)
+
+(PA12)----\/22R\/-------(D+)
+           \
+            \----\/1.5k\/----(3V3)
+
+(GND)-------------------(GND)
+
+(3V3)----<LDO/DC-DC<----(VBUS)
+=================================================
