@@ -3,13 +3,13 @@
   Vendor  |   Flash   |Package|    Bus    |Density|Read  |Erase |Write |flashrom
 Name      |P/N        |       |T.  W. Clk |KiB    |KiB/s |secs  |KiB/s |Support
 ---------------------------------------------------------------------------------
-EON        EN25F16     DIP-8   SPI 1b 9MHz 2048     249.8   26.0  100.4 V
-Macronix   MX25L6445E  WSOP-8  SPI 1b 9MHz 8192     279.6 1545.7?  115.1 V
-SST        SST25VF040B WSON-8  SPI 1b 9MHz 512      176.6  176.6x  4.7   Untested
+EON        EN25F16     DIP-8   SPI 1b 9MHz    2048  284.4   24.9   95.7 V
+Macronix   MX25L6445E  WSOP-8  SPI 1b 9MHz    8192  290.5   33.7  108.2 V
+SST        SST25VF040B WSON-8  SPI 1b 9MHz     512  276.8    4.8    4.0 UNTESTED
 Winbond    W25Q16B*     WSOP-8
-Winbond    W25Q32B     WSOP-8
+Winbond    W25Q32B     WSOP-8  SPI 1b 9MHz    4096  288.5   48.1  107.5 V
 Winbond    W25Q64*      WSOP-8
-PMC        Pm25LV010   SOP-8
+PMC        Pm25LV010   SOP-8   SPI 1b 9MHz     128  213.3    4.0   21.9 UNTESTED
 PMC        Pm25LV512*
 PMC        Pm25LD512
 GigaDevice GD25Q80     WSOP-8
@@ -19,6 +19,7 @@ STMicro    M25P80*
 Atmel      AT25F512[?]*
 EON        EN25F05     SOP-8
 Macronix   MX25L4005*
-Macronix   MX25L12845E WSOP-16
+Macronix   MX25L12845E WSOP-16 SPI 1b 9MHz   16384  291.5  282.1  111.2 UNTESTED
+Macronix   MX25L3205D  WSOP-8  SPI 1b 9MHz    4096  288.5   74.0  108.9 V
 Sanyo      LE25FU106B  MSOP-8W                                          X
 Sanyo      LE25FU406B  WSON-8                                           X
