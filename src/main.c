@@ -2,6 +2,7 @@
 #include <stm32/gpio.h>
 #include <stm32/misc.h>
 #include <stm32/spi.h>
+#include <stm32/dma.h>
 #include <stm32/usb/lib.h>
 #include <string.h>
 #include "serprog.h"
@@ -16,9 +17,12 @@ uint8_t  USB_Rx_Buf[VCP_DATA_SIZE];
 uint16_t USB_Rx_ptr_out = 0;
 uint8_t  USB_Rx_len     = 0;
 
+const uint8_t DMA_Clk_Buf[VCP_DATA_SIZE] = {0};
+
 GPIO_InitTypeDef GPIO_InitStructure;
 NVIC_InitTypeDef NVIC_InitStructure;
 SPI_InitTypeDef  SPI_InitStructure;
+DMA_InitTypeDef  DMA_InitStructure;
 
 void serprog_handle_command(unsigned char command);
 
@@ -68,7 +72,7 @@ char getchar_uart(void) {
 }
 
 int main(void) {
-  /* Configure Clocks (GPIO clocks already enabled by startup.c) */
+  /* Configure Clocks (GPIO and DMA clocks already enabled by startup.c) */
   RCC_PCLK2Config(RCC_HCLK_Div2);
   RCC_APB2PeriphClockCmd(RCC_APB2Periph_SPI1, ENABLE);
   RCC_USBCLKConfig(RCC_USBCLKSource_PLLCLK_1Div5);
@@ -99,11 +103,34 @@ int main(void) {
   SPI_InitStructure.SPI_CPOL              = SPI_CPOL_Low;
   SPI_InitStructure.SPI_CPHA              = SPI_CPHA_1Edge;
   SPI_InitStructure.SPI_NSS               = SPI_NSS_Soft;
-  SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BaudRatePrescaler_8;
+  SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BAUD_DIV;
   SPI_InitStructure.SPI_FirstBit          = SPI_FirstBit_MSB;
   SPI_InitStructure.SPI_CRCPolynomial     = 7;
   SPI_Init(SPI1, &SPI_InitStructure);
-  SPI_Cmd(SPI1, ENABLE);
+
+  /* SPI DMA Channels */
+  DMA_DeInit(SPI_READ_DMA_CH);
+  DMA_InitStructure.DMA_PeripheralBaseAddr = (uint32_t)SPI1_DR_Base;
+  DMA_InitStructure.DMA_MemoryBaseAddr     = (uint32_t)USB_Tx_Buf;
+  DMA_InitStructure.DMA_DIR                = DMA_DIR_PeripheralSRC;
+  DMA_InitStructure.DMA_BufferSize         = VCP_DATA_SIZE;
+  DMA_InitStructure.DMA_PeripheralInc      = DMA_PeripheralInc_Disable;
+  DMA_InitStructure.DMA_MemoryInc          = DMA_MemoryInc_Enable;
+  DMA_InitStructure.DMA_PeripheralDataSize = DMA_PeripheralDataSize_Byte;
+  DMA_InitStructure.DMA_MemoryDataSize     = DMA_MemoryDataSize_Byte;
+  DMA_InitStructure.DMA_Mode               = DMA_Mode_Normal;
+  DMA_InitStructure.DMA_Priority           = DMA_Priority_High;
+  DMA_InitStructure.DMA_M2M                = DMA_M2M_Disable;
+  DMA_Init(SPI_READ_DMA_CH, &DMA_InitStructure);
+  DMA_DeInit(SPI_WRITE_DMA_CH);
+  //DMA_InitStructure.DMA_PeripheralBaseAddr = SPI1_DR_Base;
+  DMA_InitStructure.DMA_MemoryBaseAddr     = (uint32_t)USB_Rx_Buf;
+  DMA_InitStructure.DMA_DIR                = DMA_DIR_PeripheralDST;
+  DMA_InitStructure.DMA_Priority           = DMA_Priority_Low;
+  DMA_Init(SPI_WRITE_DMA_CH, &DMA_InitStructure);
+  DMA_DeInit(SPI_CLOCK_DMA_CH);
+  DMA_InitStructure.DMA_MemoryBaseAddr     = (uint32_t)DMA_Clk_Buf;
+  DMA_Init(SPI_CLOCK_DMA_CH, &DMA_InitStructure);
 
   /* Configure USB Interrupt */
   NVIC_PriorityGroupConfig(NVIC_PriorityGroup_1);
@@ -113,8 +140,19 @@ int main(void) {
   NVIC_InitStructure.NVIC_IRQChannelCmd                = ENABLE;
   NVIC_Init(&NVIC_InitStructure);
 
-  /* Tell libstm32usb to initialize USB */
+  /* Enable all peripherals */
+  SPI_I2S_DMACmd(SPI1, SPI_I2S_DMAReq_Tx, ENABLE);
+  SPI_I2S_DMACmd(SPI1, SPI_I2S_DMAReq_Rx, ENABLE);
+  // TODO: implement spi and dma error handling
+  SPI_CalculateCRC(SPI1, DISABLE);
+  SPI_Cmd(SPI1, ENABLE);
   USB_Init();
+
+//  /* Wait for everything settles */
+//  while(!DMA_GetFlagStatus(DMA1_FLAG_TC4));
+//  while(!DMA_GetFlagStatus(DMA1_FLAG_TC5));
+//  while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_TXE) != RESET);
+//  while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
 
   /* Main loop */
   while(1) {
@@ -127,16 +165,57 @@ int main(void) {
   return 0;
 }
 
-uint8_t readwrite_spi(uint8_t c) {
+void spi_putc(uint8_t c) {
   /* transmit c on the SPI bus */
   SPI_I2S_SendData(SPI1, c);
 
   /* Wait for the TX and RX to be comlpeted */
   while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_TXE) == RESET);
-  while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
+}
 
-  /* Return what we received while transmitting */
-  return SPI_I2S_ReceiveData(SPI1);
+void spi_bulk_write(uint32_t size) {
+  /* Finish the left-over bytes */
+  if(USB_Rx_ptr_out != 0) {
+    size -= (USB_Rx_len - USB_Rx_ptr_out);
+    while(USB_Rx_ptr_out != USB_Rx_len) spi_putc(getchar_uart());
+    pget();
+  }
+
+  /* Do bulk transfer */
+  while(size > VCP_DATA_SIZE) {
+    DMA_Cmd(SPI_WRITE_DMA_CH, ENABLE);
+    while(!DMA_GetFlagStatus(SPI_WRITE_DMA_FLAG));
+    pget();
+    size -= VCP_DATA_SIZE;
+  }
+
+  /* Finish the left-over bytes */
+  while(size != 0) spi_putc(getchar_uart());
+}
+
+void spi_bulk_read(uint32_t size) {
+  /* Flush buffer and make room for DMA */
+  if(USB_Tx_ptr_in != 0) pput();
+
+  /* Do bulk transfer */
+  while(size > VCP_DATA_SIZE) {
+    /* RX is enabled first to avoid data loss. */
+    DMA_Cmd(SPI_READ_DMA_CH, ENABLE);
+    DMA_Cmd(SPI_CLOCK_DMA_CH, ENABLE);
+    while(!DMA_GetFlagStatus(SPI_READ_DMA_FLAG));
+    USB_Tx_ptr_in = VCP_DATA_SIZE;
+    pput();
+    size -= VCP_DATA_SIZE;
+  }
+
+  /* Finish the left-over bytes */
+  if(size != 0) {
+    DMA_Cmd(SPI_READ_DMA_CH, ENABLE);
+    DMA_Cmd(SPI_CLOCK_DMA_CH, ENABLE);
+    while(!DMA_GetFlagStatus(SPI_READ_DMA_FLAG));
+    USB_Tx_ptr_in = size;
+    pput();
+  }
 }
 
 uint32_t get24_le() {
@@ -154,7 +233,7 @@ void serprog_handle_command(unsigned char command) {
 
   static uint8_t  i;        /* Loop            */
   static uint8_t  l;        /* Length          */
-  static char     c;
+  //static char     c;
   static uint32_t slen = 0; /* SPIOP write len */
   static uint32_t rlen = 0; /* SPIOP read len  */
 
@@ -184,6 +263,7 @@ void serprog_handle_command(unsigned char command) {
       break;
     case S_CMD_Q_SERBUF:
       putchar_uart(S_ACK);
+      /* Pretend to be 64K (0xffff) */
       putchar_uart(0xff);
       putchar_uart(0xff);
       break;
@@ -228,13 +308,15 @@ void serprog_handle_command(unsigned char command) {
 
       select_chip();
       /* SPI is configured in little endian */
-      while(slen--) {
-        c = getchar_uart();
-        readwrite_spi(c);
-      }
+      //while(slen--) {
+      //  c = getchar_uart();
+      //  readwrite_spi(c);
+      //}
+      spi_bulk_write(slen);
       putchar_uart(S_ACK);
       /* receive TODO: handle errors */
-      while(rlen--) putchar_uart(readwrite_spi(0x0));
+      //while(rlen--) putchar_uart(readwrite_spi(0x0));
+      spi_bulk_read(rlen);
       unselect_chip();
       break;
     default: break;

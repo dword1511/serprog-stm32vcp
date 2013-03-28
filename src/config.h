@@ -4,18 +4,28 @@
 /* Board */
 #define PORT_LED              GPIOA
 #define PIN_LED               GPIO_Pin_0
-#define PORT_SS               GPIOA              /* Software SS, assign as you like */
+#define PORT_SS               GPIOA                   /* Software SS, assign as you like */
 #define PIN_SS                GPIO_Pin_4
 
 /* USB */
 #define MASS_MEMORY_START     0x04002000
-#define BULK_MAX_PACKET_SIZE  0x00000040         /* 64 Bytes */
-#define VCP_DATA_SIZE         0x40               /* Should be the same as BULK_MAX_PACKET_SIZE */
+#define BULK_MAX_PACKET_SIZE  0x00000040              /* 64 Bytes */
+#define VCP_DATA_SIZE         0x40                    /* Should be the same as BULK_MAX_PACKET_SIZE */
+
+/* SPI */
+#define SPI1_DR_Base          (SPI1->DR)
+#define SPI_WRITE_DMA_CH      DMA1_Channel6
+#define SPI_WRITE_DMA_FLAG    DMA1_FLAG_TC6
+#define SPI_CLOCK_DMA_CH      DMA1_Channel5
+#define SPI_CLOCK_DMA_FLAG    DMA1_FLAG_TC5
+#define SPI_READ_DMA_CH       DMA1_Channel4
+#define SPI_READ_DMA_FLAG     DMA1_FLAG_TC4
+#define SPI_BAUD_DIV          SPI_BaudRatePrescaler_8 /* 72MHz / 8 = 9MHz */
 
 /* serprog */
-#define S_IFACE_VERSION       0x01               /* Version of the protocol */
-#define S_PGM_NAME            "serprog-STM32VCP" /* The program's name, must < 16 bytes */
-#define SUPPORTED_BUS         0x08               /* SPI only */
+#define S_IFACE_VERSION       0x01                    /* Version of the protocol */
+#define S_PGM_NAME            "serprog-STM32VCP"      /* The program's name, must < 16 bytes */
+#define SUPPORTED_BUS         0x08                    /* SPI only */
 
 #define SUPPORTED_COMMANDS_LOW ( \
   ( \
