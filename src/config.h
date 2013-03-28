@@ -13,13 +13,6 @@
 #define VCP_DATA_SIZE         0x40                    /* Should be the same as BULK_MAX_PACKET_SIZE */
 
 /* SPI */
-#define SPI1_DR_Base          (SPI1->DR)
-#define SPI_WRITE_DMA_CH      DMA1_Channel6
-#define SPI_WRITE_DMA_FLAG    DMA1_FLAG_TC6
-#define SPI_CLOCK_DMA_CH      DMA1_Channel5
-#define SPI_CLOCK_DMA_FLAG    DMA1_FLAG_TC5
-#define SPI_READ_DMA_CH       DMA1_Channel4
-#define SPI_READ_DMA_FLAG     DMA1_FLAG_TC4
 #define SPI_BAUD_DIV          SPI_BaudRatePrescaler_8 /* 72MHz / 8 = 9MHz */
 
 /* serprog */
