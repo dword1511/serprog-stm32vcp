@@ -127,9 +127,9 @@ int main(void) {
   return 0;
 }
 
-uint8_t readwrite_spi(uint8_t c) {
+uint8_t read_spi(void) {
   /* transmit c on the SPI bus */
-  SPI_I2S_SendData(SPI1, c);
+  SPI_I2S_SendData(SPI1, 0x00);
 
   /* Wait for the TX and RX to be comlpeted */
   while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_TXE) == RESET);
@@ -137,6 +137,15 @@ uint8_t readwrite_spi(uint8_t c) {
 
   /* Return what we received while transmitting */
   return SPI_I2S_ReceiveData(SPI1);
+}
+
+void write_spi(uint8_t c) {
+  /* transmit c on the SPI bus */
+  SPI_I2S_SendData(SPI1, c);
+
+  /* Wait for the TX and RX to be comlpeted */
+  while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_TXE) == RESET);
+  while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
 }
 
 uint32_t get24_le() {
@@ -154,7 +163,6 @@ void serprog_handle_command(unsigned char command) {
 
   static uint8_t  i;        /* Loop            */
   static uint8_t  l;        /* Length          */
-  static char     c;
   static uint32_t slen = 0; /* SPIOP write len */
   static uint32_t rlen = 0; /* SPIOP read len  */
 
@@ -228,13 +236,10 @@ void serprog_handle_command(unsigned char command) {
 
       select_chip();
       /* SPI is configured in little endian */
-      while(slen--) {
-        c = getchar_uart();
-        readwrite_spi(c);
-      }
+      while(slen--) write_spi(getchar_uart());
       putchar_uart(S_ACK);
       /* receive TODO: handle errors */
-      while(rlen--) putchar_uart(readwrite_spi(0x0));
+      while(rlen--) putchar_uart(read_spi());
       unselect_chip();
       break;
     default: break;
