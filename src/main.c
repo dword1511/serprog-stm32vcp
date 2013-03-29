@@ -145,7 +145,11 @@ void write_spi(uint8_t c) {
 
   /* Wait for the TX and RX to be comlpeted */
   while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_TXE) == RESET);
+}
+
+void empty_spi_buf(void) {
   while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
+  SPI_I2S_ReceiveData(SPI1);
 }
 
 uint32_t get24_le() {
@@ -238,6 +242,7 @@ void serprog_handle_command(unsigned char command) {
       /* SPI is configured in little endian */
       while(slen--) write_spi(getchar_uart());
       putchar_uart(S_ACK);
+      empty_spi_buf();
       /* receive TODO: handle errors */
       while(rlen--) putchar_uart(read_spi());
       unselect_chip();
