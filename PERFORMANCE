@@ -1,10 +1,37 @@
-(flashrom v0.9.5.2-r1517, ~20cm wiring, calibration and verification time counted out)
+Benchmark HowTo:
+1. Profile calibration and chip recognition time:
+   This is needed for every PC + firmware combination.
+   Command: $ time flashrom -p serprog:dev=/dev/ttyACM0:4000000
+   The result is given in the "real" field and is expected to be around 2 seconds.
+2. Profile read speed:
+   Command: $ time flashrom -p serprog:dev=/dev/ttyACM0:4000000 -r tmp.bin
+   Read speed = density / (read time - calibration time)
+   Should be done in a few seconds to less than one minute.
+3. Profile erase time:
+   Command: $ time flashrom -p serprog:dev=/dev/ttyACM0:4000000 -E
+   Erase time = real - calibration time
+4. Profile write time:
+   Command: $ dd if=/dev/urandom of=tmp.bin bs=1024 count=density_in_kib
+            $ time flashrom -p serprog:dev=/dev/ttyACM0:4000000 -w tmp.bin
+   Write speed = density / (write time - 2 * read time + calibration time)
+   Every write operation comes with 3 steps. First flashrom will check whether the
+   flash is empty and erase pages if needed. Then write. Then verify. So 2 read
+   procedures in total.
+   Some flash can be extremely slow at writing.
+5. Keep the values to yourself. I will not put them here.
+
+Last tested with:
+flashrom v0.9.5.2-r1517
+~5cm wiring
+calibration and verification time counted out
+
 ---------------------------------------------------------------------------------
   Vendor  |   Flash   |Package|    Bus    |Density|Read  |Erase |Write |flashrom
 Name      |P/N        |       |T.  W. Clk |KiB    |KiB/s |secs  |KiB/s |Support
 ---------------------------------------------------------------------------------
 EON        EN25F16     DIP-8   SPI 1b 9MHz    2048  284.4   24.9   95.7 V
 Macronix   MX25L6445E  WSOP-8  SPI 1b 9MHz    8192  290.5   33.7  108.2 V
+Macronix   MX25L6405D*
 SST        SST25VF040B WSON-8  SPI 1b 9MHz     512  276.8    4.8    4.0 UNTESTED
 Winbond    W25Q16B*     WSOP-8
 Winbond    W25Q32B     WSOP-8  SPI 1b 9MHz    4096  288.5   48.1  107.5 V
