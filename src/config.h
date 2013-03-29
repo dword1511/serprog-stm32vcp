@@ -16,27 +16,18 @@
 #define SPI_BAUD_DIV          SPI_BaudRatePrescaler_8 /* 72MHz / 8 = 9MHz */
 
 /* serprog */
-#define S_IFACE_VERSION       0x01                    /* Version of the protocol */
 #define S_PGM_NAME            "serprog-STM32VCP"      /* The program's name, must < 16 bytes */
-#define SUPPORTED_BUS         0x08                    /* SPI only */
-
-#define SUPPORTED_COMMANDS_LOW ( \
-  ( \
-    (1 << S_CMD_NOP)       | \
-    (1 << S_CMD_Q_IFACE)   | \
-    (1 << S_CMD_Q_CMDMAP)  | \
-    (1 << S_CMD_Q_PGMNAME) | \
-    (1 << S_CMD_Q_SERBUF)  | \
-    (1 << S_CMD_Q_BUSTYPE)   \
-  ) \
-  & 0xff \
-)
-#define SUPPORTED_COMMANDS_HIGH ( \
-  ( \
-    (1 << (S_CMD_SYNCNOP   - 16)) | \
-    (1 << (S_CMD_O_SPIOP   - 16)) | \
-    (1 << (S_CMD_S_BUSTYPE - 16))   \
-  ) & 0xff \
+#define S_SUPPORTED_BUS       BUS_SPI
+#define S_CMD_MAP ( \
+  (1 << S_CMD_NOP)       | \
+  (1 << S_CMD_Q_IFACE)   | \
+  (1 << S_CMD_Q_CMDMAP)  | \
+  (1 << S_CMD_Q_PGMNAME) | \
+  (1 << S_CMD_Q_SERBUF)  | \
+  (1 << S_CMD_Q_BUSTYPE) | \
+  (1 << S_CMD_SYNCNOP)   | \
+  (1 << S_CMD_O_SPIOP)   | \
+  (1 << S_CMD_S_BUSTYPE)   \
 )
 
 /* GPIO */

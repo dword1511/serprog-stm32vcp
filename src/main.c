@@ -41,7 +41,7 @@ void delay(volatile uint32_t cycles) {
   while(cycles -- != 0);
 }
 
-void pput(void) {
+void usb_putp(void) {
   /* Previous transmission complete? */
   while(GetEPTxStatus(ENDP1) != EP_TX_NAK);
   /* Send buffer contents */
@@ -52,7 +52,7 @@ void pput(void) {
   USB_Tx_ptr_in = 0;
 }
 
-void pget(void) {
+void usb_getp(void) {
   /* Anything new? */
   while(GetEPRxStatus(ENDP3) != EP_RX_NAK);
   /* Get the length */
@@ -65,17 +65,17 @@ void pget(void) {
   USB_Rx_ptr_out = 0;
 }
 
-void putchar_uart(unsigned char data) {
+void usb_putc(unsigned char data) {
   /* Feed new data */
   USB_Tx_Buf[USB_Tx_ptr_in] = data;
   USB_Tx_ptr_in ++;
   /* End of the buffer, send packet now */
-  if(USB_Tx_ptr_in == VCP_DATA_SIZE) pput();
+  if(USB_Tx_ptr_in == VCP_DATA_SIZE) usb_putp();
 }
 
-char getchar_uart(void) {
+char usb_getc(void) {
   /* End of the buffer, wait for new packet */
-  if(USB_Rx_ptr_out == USB_Rx_len) pget();
+  if(USB_Rx_ptr_out == USB_Rx_len) usb_getp();
   /* Get data from the packet */
   USB_Rx_ptr_out ++;
   return USB_Rx_Buf[USB_Rx_ptr_out - 1];
@@ -127,111 +127,84 @@ int main(void) {
   NVIC_Init(&NVIC_InitStructure);
 
   /* Enable all peripherals */
-  // TODO: implement spi and dma error handling
-  SPI_CalculateCRC(SPI1, DISABLE);
   SPI_Cmd(SPI1, ENABLE);
   USB_Init();
 
   /* Main loop */
   while(1) {
     /* Get command */
-    serprog_handle_command(getchar_uart());
+    serprog_handle_command(usb_getc());
     /* Flush output via USB */
-    if(USB_Tx_ptr_in != 0) pput();
+    if(USB_Tx_ptr_in != 0) usb_putp();
   }
 
   return 0;
 }
-
+#if 0
 void spi_putc(uint8_t c) {
   /* transmit c on the SPI bus */
   SPI_I2S_SendData(SPI1, c);
 
-  /* Wait for the TX and RX to be comlpeted */
-  while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_TXE) == RESET);
+  /* Wait for the TX and RX to be comlpeted, then clear buffer */
+  while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
+  SPI_I2S_ReceiveData(SPI1);
 }
+
 
 void spi_bulk_write(uint32_t size) {
   /* Prepare alignment */
   if(size >= (USB_Rx_len - USB_Rx_ptr_out)) {
     size -= (USB_Rx_len - USB_Rx_ptr_out);
-    while(USB_Rx_ptr_out != USB_Rx_len) {
-      spi_putc(getchar_uart());
-      while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
-    SPI_I2S_ReceiveData(SPI1);
-    }
+    while(USB_Rx_ptr_out != USB_Rx_len) spi_putc(usb_getc());
   }
   /* else: size < VCP_DATA_SIZE, should jump to next section. */
 
   static int i;
 
   /* Do bulk transfer */
-/*  while(size >= VCP_DATA_SIZE) {
-    pget();
+  /* Currently this takes less input than expected */
+  while(size >= VCP_DATA_SIZE) {
+    usb_getp();
+    if(USB_Rx_len < VCP_DATA_SIZE) {
+      /* Host is not feeding fast enough? */
+      USB_Rx_ptr_out = 0;
+      break;
+    }
     for(i = 0; i < VCP_DATA_SIZE; i += 8){
       spi_putc(USB_Rx_Buf[i + 0]);
-      while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
-    SPI_I2S_ReceiveData(SPI1);
       spi_putc(USB_Rx_Buf[i + 1]);
-      while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
-    SPI_I2S_ReceiveData(SPI1);
       spi_putc(USB_Rx_Buf[i + 2]);
-      while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
-    SPI_I2S_ReceiveData(SPI1);
       spi_putc(USB_Rx_Buf[i + 3]);
-      while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
-    SPI_I2S_ReceiveData(SPI1);
       spi_putc(USB_Rx_Buf[i + 4]);
-      while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
-    SPI_I2S_ReceiveData(SPI1);
       spi_putc(USB_Rx_Buf[i + 5]);
-      while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
-    SPI_I2S_ReceiveData(SPI1);
       spi_putc(USB_Rx_Buf[i + 6]);
-      while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
-    SPI_I2S_ReceiveData(SPI1);
       spi_putc(USB_Rx_Buf[i + 7]);
-      while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
-    SPI_I2S_ReceiveData(SPI1);
     }
     size -= VCP_DATA_SIZE;
-  }*/
+  }
 
   /* Finish the left-over bytes */
   while(size != 0) {
-    spi_putc(getchar_uart());
+    spi_putc(usb_getc());
+    size --;
+  }
+}
+#else
+void spi_bulk_write(uint32_t size) {
+  while(size != 0) {
+    SPI_I2S_SendData(SPI1, usb_getc());
     while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
     SPI_I2S_ReceiveData(SPI1);
     size --;
   }
-
-  /* Empty SPI read buffer */
- /*   - OVR (OverRun error) flag is cleared by software sequence: a read 
-  *     operation to SPI_DR register (SPI_I2S_ReceiveData()) followed by a read 
-  *     operation to SPI_SR register (SPI_I2S_GetFlagStatus()).
-  *   - UDR (UnderRun error) flag is cleared by a read operation to 
-  *     SPI_SR register (SPI_I2S_GetFlagStatus()).
-  *   - MODF (Mode Fault) flag is cleared by software sequence: a read/write 
-  *     operation to SPI_SR register (SPI_I2S_GetFlagStatus()) followed by a 
-  *     write operation to SPI_CR1 register (SPI_Cmd() to enable the SPI).
-  */
-//  SPI_I2S_ReceiveData(SPI1);
-//  SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE);
-//  while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
-//  SPI_I2S_ReceiveData(SPI1);
-//  SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE);
-//  SPI_I2S_ReceiveData(SPI1);
-//  SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE);
 }
+#endif
 
 void spi_bulk_read(uint32_t size) {
   /* Flush buffer and make room for DMA */
-  if(USB_Tx_ptr_in != 0) pput();
+  if(USB_Tx_ptr_in != 0) usb_putp();
 
   static int i;
-  SPI_I2S_ReceiveData(SPI1);
-  SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE);
-  SPI_I2S_ReceiveData(SPI1);
 
   /* Do bulk transfer */
   while(size >= VCP_DATA_SIZE) {
@@ -269,14 +242,14 @@ void spi_bulk_read(uint32_t size) {
       USB_Tx_Buf[i + 7] = SPI_I2S_ReceiveData(SPI1);
     }
     USB_Tx_ptr_in = VCP_DATA_SIZE;
-    pput();
+    usb_putp();
     size -= VCP_DATA_SIZE;
   }
 
   /* Finish the left-over bytes */
   if(size != 0) {
     for(i = 0; i < size; i ++) {
-      spi_putc(0);
+      SPI_I2S_SendData(SPI1, 0);
       while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
       USB_Tx_Buf[i] = SPI_I2S_ReceiveData(SPI1);
     }
@@ -287,9 +260,9 @@ void spi_bulk_read(uint32_t size) {
 uint32_t get24_le() {
   uint32_t val = 0;
 
-  val  = (uint32_t)getchar_uart() << 0;
-  val |= (uint32_t)getchar_uart() << 8;
-  val |= (uint32_t)getchar_uart() << 16;
+  val  = (uint32_t)usb_getc() << 0;
+  val |= (uint32_t)usb_getc() << 8;
+  val |= (uint32_t)usb_getc() << 16;
 
   return val;
 }
@@ -304,37 +277,38 @@ void serprog_handle_command(unsigned char command) {
 
   switch(command) {
     case S_CMD_NOP:
-      putchar_uart(S_ACK);
+      usb_putc(S_ACK);
       break;
     case S_CMD_Q_IFACE:
-      putchar_uart(S_ACK);
-      putchar_uart(S_IFACE_VERSION);
+      usb_putc(S_ACK);
       /* little endian multibyte value to complete to 16bit */
-      putchar_uart(0);
+      usb_putc(S_IFACE_VERSION);
+      usb_putc(0);
     break;
       case S_CMD_Q_CMDMAP:
-      putchar_uart(S_ACK);
+      usb_putc(S_ACK);
       /* little endian */
-      putchar_uart(SUPPORTED_COMMANDS_LOW);
-      putchar_uart(0x00);
-      putchar_uart(SUPPORTED_COMMANDS_HIGH);
-      for(i = 0; i < 29; i++) putchar_uart(0);
+      usb_putc((S_CMD_MAP >>  0) & 0x000000ff);
+      usb_putc((S_CMD_MAP >>  8) & 0x000000ff);
+      usb_putc((S_CMD_MAP >> 16) & 0x000000ff);
+      usb_putc((S_CMD_MAP >> 24) & 0x000000ff);
+      for(i = 0; i < 28; i++) usb_putc(0);
       break;
     case S_CMD_Q_PGMNAME:
-      putchar_uart(S_ACK);
+      usb_putc(S_ACK);
       l = strlen(S_PGM_NAME);
-      for(i = 0; i <  l; i++) putchar_uart(S_PGM_NAME[i]);
-      for(i = l; i < 16; i++) putchar_uart(0);
+      for(i = 0; i <  l; i++) usb_putc(S_PGM_NAME[i]);
+      for(i = l; i < 16; i++) usb_putc(0);
       break;
     case S_CMD_Q_SERBUF:
-      putchar_uart(S_ACK);
+      usb_putc(S_ACK);
       /* Pretend to be 64K (0xffff) */
-      putchar_uart(0xff);
-      putchar_uart(0xff);
+      usb_putc(0xff);
+      usb_putc(0xff);
       break;
     case S_CMD_Q_BUSTYPE:
-      putchar_uart(S_ACK);
-      putchar_uart(SUPPORTED_BUS);
+      usb_putc(S_ACK);
+      usb_putc(S_SUPPORTED_BUS);
       break;
     case S_CMD_Q_CHIPSIZE: break;
     case S_CMD_Q_OPBUF:    break;
@@ -351,21 +325,17 @@ void serprog_handle_command(unsigned char command) {
       break;
     case S_CMD_O_EXEC:     break;
     case S_CMD_SYNCNOP:
-      putchar_uart(S_NAK);
-      putchar_uart(S_ACK);
+      usb_putc(S_NAK);
+      usb_putc(S_ACK);
       break;
     case S_CMD_Q_RDNMAXLEN:
       // TODO
       break;
     case S_CMD_S_BUSTYPE:
-      switch(getchar_uart()) {
-        case SUPPORTED_BUS:
-          putchar_uart(S_ACK);
-          break;
-        default:
-          putchar_uart(S_NAK);
-          break;
-      }
+      /* We do not have multiplexed bus interfaces,
+       * so simply ack on supported types, no setup needed. */
+      if((usb_getc() | S_SUPPORTED_BUS) == S_SUPPORTED_BUS) usb_putc(S_ACK);
+      else usb_putc(S_NAK);
       break;
     case S_CMD_O_SPIOP:
       slen = get24_le();
@@ -373,16 +343,14 @@ void serprog_handle_command(unsigned char command) {
 
       select_chip();
 
+      /* TODO: handle errors with S_NAK */
       if(slen) spi_bulk_write(slen);
-      //if(slen == 1 && rlen == 2) delay(6000000);
-      putchar_uart(S_ACK);
-      //pput();
-      /* receive TODO: handle errors */
+      usb_putc(S_ACK);
       if(rlen) spi_bulk_read(rlen);
 
       unselect_chip();
       break;
-    default: break;
+    default: break; // TODO: Debug malformed command
   }
 
   led_on();

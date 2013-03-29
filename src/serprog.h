@@ -1,6 +1,8 @@
 #ifndef __SERPROG_H_
 #define __SERPROG_H_
 
+#define S_IFACE_VERSION   0x01 /* Version of the protocol */
+
 /* According to Serial Flasher Protocol Specification - version 1 */
 #define S_ACK             0x06
 #define S_NAK             0x15
@@ -26,5 +28,14 @@
 #define S_CMD_O_SPIOP     0x13 /* Perform SPI operation                        */
 #define S_CMD_S_SPI_FREQ  0x14 /* Set SPI clock frequency                      */
 #define S_CMD_S_PIN_STATE 0x15 /* Enable/disable output drivers                */
+
+/* flashrom bus types */
+#define BUS_NONE          0x00
+#define BUS_PARALLEL      0x01
+#define BUS_LPC           0x02
+#define BUS_FWH           0x04
+#define BUS_SPI           0x08
+#define BUS_PROG          0x10
+#define BUS_NONSPI        (BUS_PARALLEL | BUS_LPC | BUS_FWH)
 
 #endif /* __SERPROG_H_ */

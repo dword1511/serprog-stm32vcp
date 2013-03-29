@@ -33,8 +33,8 @@ EON        EN25F16     DIP-8   SPI 1b 9MHz    2048  284.4   24.9   95.7 V
 Macronix   MX25L6445E  WSOP-8  SPI 1b 9MHz    8192  290.5   33.7  108.2 V
 Macronix   MX25L6405D*
 SST        SST25VF040B WSON-8  SPI 1b 9MHz     512  276.8    4.8    4.0 UNTESTED
-Winbond    W25Q16B*     WSOP-8
-Winbond    W25Q32B     WSOP-8  SPI 1b 9MHz    4096  288.5   48.1  107.5 V
+Winbond    W25Q16BV*     WSOP-8
+Winbond    W25Q32BV     WSOP-8  SPI 1b 9MHz    4096  288.5   48.1  107.5 V
 Winbond    W25Q64*      WSOP-8
 PMC        Pm25LV010   SOP-8   SPI 1b 9MHz     128  213.3    4.0   21.9 UNTESTED
 PMC        Pm25LV512*
