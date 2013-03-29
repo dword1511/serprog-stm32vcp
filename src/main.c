@@ -23,6 +23,19 @@ SPI_InitTypeDef  SPI_InitStructure;
 
 void serprog_handle_command(unsigned char command);
 
+#ifdef _DEBUG_
+void fault_led(void) {
+  GPIO_InitStructure.GPIO_Pin   = GPIO_Pin_1 | GPIO_Pin_2 | GPIO_Pin_3;
+  GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_Out_PP;
+  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
+  GPIO_Init(GPIOA, &GPIO_InitStructure);
+
+  GPIO_ResetBits(GPIOA, GPIO_Pin_1);
+
+  while(1);
+}
+#endif
+
 /* 72MHz, 3 cycles per loop. */
 void delay(volatile uint32_t cycles) {
   while(cycles -- != 0);
@@ -78,7 +91,7 @@ int main(void) {
   /* Configure On-board LED */
   GPIO_InitStructure.GPIO_Pin   = PIN_LED;
   GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_Out_PP;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
+  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
   GPIO_Init(PORT_LED, &GPIO_InitStructure);
 
   /* Configure SPI Port */
@@ -139,85 +152,76 @@ void spi_putc(uint8_t c) {
 }
 
 void spi_bulk_write(uint32_t size) {
-  /* Finish the left-over bytes */
-  //if(USB_Rx_ptr_out != 0) {
+  /* Prepare alignment */
+  if(size >= (USB_Rx_len - USB_Rx_ptr_out)) {
     size -= (USB_Rx_len - USB_Rx_ptr_out);
-    while(USB_Rx_ptr_out != USB_Rx_len) spi_putc(getchar_uart());
-  //  pget();
-  //}
-  //  static uint8_t i
-  /* Do bulk transfer */
-  while(size > VCP_DATA_SIZE) {
-    pget();
-    spi_putc(USB_Rx_Buf[ 0]);
-    spi_putc(USB_Rx_Buf[ 1]);
-    spi_putc(USB_Rx_Buf[ 2]);
-    spi_putc(USB_Rx_Buf[ 3]);
-    spi_putc(USB_Rx_Buf[ 4]);
-    spi_putc(USB_Rx_Buf[ 5]);
-    spi_putc(USB_Rx_Buf[ 6]);
-    spi_putc(USB_Rx_Buf[ 7]);
-    spi_putc(USB_Rx_Buf[ 8]);
-    spi_putc(USB_Rx_Buf[ 9]);
-    spi_putc(USB_Rx_Buf[10]);
-    spi_putc(USB_Rx_Buf[11]);
-    spi_putc(USB_Rx_Buf[12]);
-    spi_putc(USB_Rx_Buf[13]);
-    spi_putc(USB_Rx_Buf[14]);
-    spi_putc(USB_Rx_Buf[15]);
-    spi_putc(USB_Rx_Buf[16]);
-    spi_putc(USB_Rx_Buf[17]);
-    spi_putc(USB_Rx_Buf[18]);
-    spi_putc(USB_Rx_Buf[19]);
-    spi_putc(USB_Rx_Buf[20]);
-    spi_putc(USB_Rx_Buf[21]);
-    spi_putc(USB_Rx_Buf[22]);
-    spi_putc(USB_Rx_Buf[23]);
-    spi_putc(USB_Rx_Buf[24]);
-    spi_putc(USB_Rx_Buf[25]);
-    spi_putc(USB_Rx_Buf[26]);
-    spi_putc(USB_Rx_Buf[27]);
-    spi_putc(USB_Rx_Buf[28]);
-    spi_putc(USB_Rx_Buf[29]);
-    spi_putc(USB_Rx_Buf[30]);
-    spi_putc(USB_Rx_Buf[31]);
-    spi_putc(USB_Rx_Buf[32]);
-    spi_putc(USB_Rx_Buf[33]);
-    spi_putc(USB_Rx_Buf[34]);
-    spi_putc(USB_Rx_Buf[35]);
-    spi_putc(USB_Rx_Buf[36]);
-    spi_putc(USB_Rx_Buf[37]);
-    spi_putc(USB_Rx_Buf[38]);
-    spi_putc(USB_Rx_Buf[39]);
-    spi_putc(USB_Rx_Buf[40]);
-    spi_putc(USB_Rx_Buf[41]);
-    spi_putc(USB_Rx_Buf[42]);
-    spi_putc(USB_Rx_Buf[43]);
-    spi_putc(USB_Rx_Buf[44]);
-    spi_putc(USB_Rx_Buf[45]);
-    spi_putc(USB_Rx_Buf[46]);
-    spi_putc(USB_Rx_Buf[47]);
-    spi_putc(USB_Rx_Buf[48]);
-    spi_putc(USB_Rx_Buf[49]);
-    spi_putc(USB_Rx_Buf[50]);
-    spi_putc(USB_Rx_Buf[51]);
-    spi_putc(USB_Rx_Buf[52]);
-    spi_putc(USB_Rx_Buf[53]);
-    spi_putc(USB_Rx_Buf[54]);
-    spi_putc(USB_Rx_Buf[55]);
-    spi_putc(USB_Rx_Buf[56]);
-    spi_putc(USB_Rx_Buf[57]);
-    spi_putc(USB_Rx_Buf[58]);
-    spi_putc(USB_Rx_Buf[59]);
-    spi_putc(USB_Rx_Buf[60]);
-    spi_putc(USB_Rx_Buf[61]);
-    spi_putc(USB_Rx_Buf[62]);
-    spi_putc(USB_Rx_Buf[63]);
-    size -= VCP_DATA_SIZE;
+    while(USB_Rx_ptr_out != USB_Rx_len) {
+      spi_putc(getchar_uart());
+      while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
+    SPI_I2S_ReceiveData(SPI1);
+    }
   }
+  /* else: size < VCP_DATA_SIZE, should jump to next section. */
+
+  static int i;
+
+  /* Do bulk transfer */
+/*  while(size >= VCP_DATA_SIZE) {
+    pget();
+    for(i = 0; i < VCP_DATA_SIZE; i += 8){
+      spi_putc(USB_Rx_Buf[i + 0]);
+      while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
+    SPI_I2S_ReceiveData(SPI1);
+      spi_putc(USB_Rx_Buf[i + 1]);
+      while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
+    SPI_I2S_ReceiveData(SPI1);
+      spi_putc(USB_Rx_Buf[i + 2]);
+      while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
+    SPI_I2S_ReceiveData(SPI1);
+      spi_putc(USB_Rx_Buf[i + 3]);
+      while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
+    SPI_I2S_ReceiveData(SPI1);
+      spi_putc(USB_Rx_Buf[i + 4]);
+      while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
+    SPI_I2S_ReceiveData(SPI1);
+      spi_putc(USB_Rx_Buf[i + 5]);
+      while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
+    SPI_I2S_ReceiveData(SPI1);
+      spi_putc(USB_Rx_Buf[i + 6]);
+      while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
+    SPI_I2S_ReceiveData(SPI1);
+      spi_putc(USB_Rx_Buf[i + 7]);
+      while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
+    SPI_I2S_ReceiveData(SPI1);
+    }
+    size -= VCP_DATA_SIZE;
+  }*/
 
   /* Finish the left-over bytes */
-  while(size != 0) spi_putc(getchar_uart());
+  while(size != 0) {
+    spi_putc(getchar_uart());
+    while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
+    SPI_I2S_ReceiveData(SPI1);
+    size --;
+  }
+
+  /* Empty SPI read buffer */
+ /*   - OVR (OverRun error) flag is cleared by software sequence: a read 
+  *     operation to SPI_DR register (SPI_I2S_ReceiveData()) followed by a read 
+  *     operation to SPI_SR register (SPI_I2S_GetFlagStatus()).
+  *   - UDR (UnderRun error) flag is cleared by a read operation to 
+  *     SPI_SR register (SPI_I2S_GetFlagStatus()).
+  *   - MODF (Mode Fault) flag is cleared by software sequence: a read/write 
+  *     operation to SPI_SR register (SPI_I2S_GetFlagStatus()) followed by a 
+  *     write operation to SPI_CR1 register (SPI_Cmd() to enable the SPI).
+  */
+//  SPI_I2S_ReceiveData(SPI1);
+//  SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE);
+//  while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
+//  SPI_I2S_ReceiveData(SPI1);
+//  SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE);
+//  SPI_I2S_ReceiveData(SPI1);
+//  SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE);
 }
 
 void spi_bulk_read(uint32_t size) {
@@ -225,32 +229,42 @@ void spi_bulk_read(uint32_t size) {
   if(USB_Tx_ptr_in != 0) pput();
 
   static int i;
+  SPI_I2S_ReceiveData(SPI1);
+  SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE);
+  SPI_I2S_ReceiveData(SPI1);
 
   /* Do bulk transfer */
-  while(size > VCP_DATA_SIZE) {
+  while(size >= VCP_DATA_SIZE) {
     for(i = 0; i < VCP_DATA_SIZE; i += 8) {
-      spi_putc(0);
+      SPI_I2S_SendData(SPI1, 0);
       while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
       USB_Tx_Buf[i + 0] = SPI_I2S_ReceiveData(SPI1);
-      spi_putc(0);
+
+      SPI_I2S_SendData(SPI1, 0);
       while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
       USB_Tx_Buf[i + 1] = SPI_I2S_ReceiveData(SPI1);
-      spi_putc(0);
+
+      SPI_I2S_SendData(SPI1, 0);
       while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
       USB_Tx_Buf[i + 2] = SPI_I2S_ReceiveData(SPI1);
-      spi_putc(0);
+
+      SPI_I2S_SendData(SPI1, 0);
       while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
       USB_Tx_Buf[i + 3] = SPI_I2S_ReceiveData(SPI1);
-      spi_putc(0);
+
+      SPI_I2S_SendData(SPI1, 0);
       while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
       USB_Tx_Buf[i + 4] = SPI_I2S_ReceiveData(SPI1);
-      spi_putc(0);
+
+      SPI_I2S_SendData(SPI1, 0);
       while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
       USB_Tx_Buf[i + 5] = SPI_I2S_ReceiveData(SPI1);
-      spi_putc(0);
+
+      SPI_I2S_SendData(SPI1, 0);
       while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
       USB_Tx_Buf[i + 6] = SPI_I2S_ReceiveData(SPI1);
-      spi_putc(0);
+
+      SPI_I2S_SendData(SPI1, 0);
       while(SPI_I2S_GetFlagStatus(SPI1, SPI_I2S_FLAG_RXNE) == RESET);
       USB_Tx_Buf[i + 7] = SPI_I2S_ReceiveData(SPI1);
     }
@@ -267,7 +281,6 @@ void spi_bulk_read(uint32_t size) {
       USB_Tx_Buf[i] = SPI_I2S_ReceiveData(SPI1);
     }
     USB_Tx_ptr_in = size;
-    pput();
   }
 }
 
@@ -286,9 +299,8 @@ void serprog_handle_command(unsigned char command) {
 
   static uint8_t  i;        /* Loop            */
   static uint8_t  l;        /* Length          */
-  //static char     c;
-  static uint32_t slen = 0; /* SPIOP write len */
-  static uint32_t rlen = 0; /* SPIOP read len  */
+  static uint32_t slen;     /* SPIOP write len */
+  static uint32_t rlen;     /* SPIOP read len  */
 
   switch(command) {
     case S_CMD_NOP:
@@ -360,16 +372,14 @@ void serprog_handle_command(unsigned char command) {
       rlen = get24_le();
 
       select_chip();
-      /* SPI is configured in little endian */
-      //while(slen--) {
-      //  c = getchar_uart();
-      //  readwrite_spi(c);
-      //}
-      spi_bulk_write(slen);
+
+      if(slen) spi_bulk_write(slen);
+      //if(slen == 1 && rlen == 2) delay(6000000);
       putchar_uart(S_ACK);
+      //pput();
       /* receive TODO: handle errors */
-      //while(rlen--) putchar_uart(readwrite_spi(0x0));
-      spi_bulk_read(rlen);
+      if(rlen) spi_bulk_read(rlen);
+
       unselect_chip();
       break;
     default: break;

@@ -115,6 +115,7 @@ void ResetISR(void) {
   RCC_DeInit();
   RCC_HSEConfig(RCC_HSE_ON);
   if(RCC_WaitForHSEStartUp() == SUCCESS) {
+    /* Flash latency have to be set to 2 cycles when SYSCLK > 48MHz */
     FLASH_PrefetchBufferCmd(FLASH_PrefetchBuffer_Enable);
     FLASH_SetLatency(FLASH_Latency_2);
 
