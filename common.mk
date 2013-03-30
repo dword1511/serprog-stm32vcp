@@ -7,6 +7,7 @@ OBJCOPY  = $(TOOLCHAIN)objcopy
 OBJDUMP  = $(TOOLCHAIN)objdump
 
 CFLAGS   = $(TARGET_ARCH) $(SETTINGS)
+#CFLAGS  += -Wall -O3 -g -mlong-calls
 CFLAGS  += -Wall -O3 -g
 CFLAGS  += -fno-exceptions -ffunction-sections -fdata-sections
 
@@ -16,6 +17,8 @@ LDFLAGS += -Wl,-L.,--start-group,-lstm32,-lstm32usb
 
 STRIPFLAGS  = -s -R.comment
 SIZEFLAGS   = -A
+#OBJCPFLAGS  = --rename-section .text=.data -S
+OBJCPFLAGS  = -S
 
 all: $(PROJECT).sym $(PROJECT).hex $(PROJECT).bin $(PROJECT).lss
 	@echo "  SIZE    " $(PROJECT).elf
@@ -48,7 +51,7 @@ $(PROJECT).bin: $(PROJECT).elf
 	@echo "  STRIP   " $<
 	@$(STRIP) $(STRIPFLAGS) $<
 	@echo "  OBJCOPY " $@
-	@$(OBJCOPY) -S -O binary $< $@
+	@$(OBJCOPY) $(OBJCPFLAGS) -O binary $< $@
 
 stm32.lds: stm32.ld.in stm32f-rom.ld
 	@echo "  LDS     " $@
@@ -63,7 +66,7 @@ $(PROJECT).hex: $(PROJECT).elf
 	@echo "  STRIP   " $<
 	@$(STRIP) $(STRIPFLAGS) $<
 	@echo "  IHEX    " $@
-	@$(OBJCOPY) -S -O ihex $< $@
+	@$(OBJCOPY) $(OBJCPFLAGS) -O ihex $< $@
 
 clean:
 	@echo "  CLEAN   " "."
