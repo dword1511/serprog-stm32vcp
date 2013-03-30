@@ -18,6 +18,7 @@ SETTINGS        = -I./src
 # Objects list.
 OBJS += src/startup.o
 OBJS += src/main.o
+OBJS += src/progio.o
 OBJS += src/usb_istr.o
 OBJS += src/usb_prop.o
 

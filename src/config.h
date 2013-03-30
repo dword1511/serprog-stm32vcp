@@ -13,10 +13,7 @@
 #define VCP_DATA_SIZE         0x40                    /* Should be the same as BULK_MAX_PACKET_SIZE */
 
 /* SPI */
-/* Default SPI Clock. Set to 9MHz to support most chips.
- * SPI1 is on APB2, which runs @ 72MHz.
- * 72MHz / 8 = 9MHz */
-#define SPI_BAUD_DIV          SPI_BaudRatePrescaler_8 
+#define SPI_DEFAULT_SPEED     9000000                 /* Default SPI clock = 9MHz to support most chips.*/
 
 /* serprog */
 #define S_PGM_NAME            "serprog-STM32VCP"      /* The program's name, must < 16 bytes */
