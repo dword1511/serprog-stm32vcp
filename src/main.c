@@ -41,6 +41,24 @@ void delay(volatile uint32_t cycles) {
   while(cycles -- != 0);
 }
 
+void spi_conf(uint16_t clkdiv) {
+  SPI_I2S_DeInit(SPI1);
+
+  SPI_InitStructure.SPI_Direction         = SPI_Direction_2Lines_FullDuplex;
+  SPI_InitStructure.SPI_Mode              = SPI_Mode_Master;
+  SPI_InitStructure.SPI_DataSize          = SPI_DataSize_8b;
+  SPI_InitStructure.SPI_CPOL              = SPI_CPOL_Low;
+  SPI_InitStructure.SPI_CPHA              = SPI_CPHA_1Edge;
+  SPI_InitStructure.SPI_NSS               = SPI_NSS_Soft;
+  SPI_InitStructure.SPI_BaudRatePrescaler = clkdiv;
+  SPI_InitStructure.SPI_FirstBit          = SPI_FirstBit_MSB;
+  SPI_InitStructure.SPI_CRCPolynomial     = 7;
+
+  SPI_Init(SPI1, &SPI_InitStructure);
+
+  SPI_Cmd(SPI1, ENABLE);
+}
+
 void usb_putp(void) {
   /* Previous transmission complete? */
   while(GetEPTxStatus(ENDP1) != EP_TX_NAK);
@@ -107,16 +125,17 @@ int main(void) {
   GPIO_Init(PORT_SS, &GPIO_InitStructure);
 
   /* Configure SPI Engine */
-  SPI_InitStructure.SPI_Direction         = SPI_Direction_2Lines_FullDuplex;
-  SPI_InitStructure.SPI_Mode              = SPI_Mode_Master;
-  SPI_InitStructure.SPI_DataSize          = SPI_DataSize_8b;
-  SPI_InitStructure.SPI_CPOL              = SPI_CPOL_Low;
-  SPI_InitStructure.SPI_CPHA              = SPI_CPHA_1Edge;
-  SPI_InitStructure.SPI_NSS               = SPI_NSS_Soft;
-  SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BAUD_DIV;
-  SPI_InitStructure.SPI_FirstBit          = SPI_FirstBit_MSB;
-  SPI_InitStructure.SPI_CRCPolynomial     = 7;
-  SPI_Init(SPI1, &SPI_InitStructure);
+  //SPI_InitStructure.SPI_Direction         = SPI_Direction_2Lines_FullDuplex;
+  //SPI_InitStructure.SPI_Mode              = SPI_Mode_Master;
+  //SPI_InitStructure.SPI_DataSize          = SPI_DataSize_8b;
+  //SPI_InitStructure.SPI_CPOL              = SPI_CPOL_Low;
+  //SPI_InitStructure.SPI_CPHA              = SPI_CPHA_1Edge;
+  //SPI_InitStructure.SPI_NSS               = SPI_NSS_Soft;
+  //SPI_InitStructure.SPI_BaudRatePrescaler = SPI_BAUD_DIV;
+  //SPI_InitStructure.SPI_FirstBit          = SPI_FirstBit_MSB;
+  //SPI_InitStructure.SPI_CRCPolynomial     = 7;
+  //SPI_Init(SPI1, &SPI_InitStructure);
+  spi_conf(SPI_BAUD_DIV);
 
   /* Configure USB Interrupt */
   NVIC_PriorityGroupConfig(NVIC_PriorityGroup_1);
@@ -127,7 +146,7 @@ int main(void) {
   NVIC_Init(&NVIC_InitStructure);
 
   /* Enable all peripherals */
-  SPI_Cmd(SPI1, ENABLE);
+  //SPI_Cmd(SPI1, ENABLE);
   USB_Init();
 
   /* Main loop */
@@ -267,13 +286,23 @@ uint32_t get24_le() {
   return val;
 }
 
+void usb_putu32(uint32_t ww) {
+  /* little-endian. */
+  usb_putc(ww >>  0 & 0x000000ff);
+  usb_putc(ww >>  8 & 0x000000ff);
+  usb_putc(ww >> 16 & 0x000000ff);
+  usb_putc(ww >> 24 & 0x000000ff);
+}
+
 void serprog_handle_command(unsigned char command) {
   led_off();
 
-  static uint8_t  i;        /* Loop            */
-  static uint8_t  l;        /* Length          */
-  static uint32_t slen;     /* SPIOP write len */
-  static uint32_t rlen;     /* SPIOP read len  */
+  static uint8_t   i;        /* Loop            */
+  static uint8_t   l;        /* Length          */
+  static uint32_t  slen;     /* SPIOP write len */
+  static uint32_t  rlen;     /* SPIOP read len  */
+  static uint32_t  freq_req;
+  static uint8_t  *freq_ptr = (uint8_t*)&freq_req;
 
   switch(command) {
     case S_CMD_NOP:
@@ -288,15 +317,13 @@ void serprog_handle_command(unsigned char command) {
       case S_CMD_Q_CMDMAP:
       usb_putc(S_ACK);
       /* little endian */
-      usb_putc((S_CMD_MAP >>  0) & 0x000000ff);
-      usb_putc((S_CMD_MAP >>  8) & 0x000000ff);
-      usb_putc((S_CMD_MAP >> 16) & 0x000000ff);
-      usb_putc((S_CMD_MAP >> 24) & 0x000000ff);
-      for(i = 0; i < 28; i++) usb_putc(0);
+      usb_putu32(S_CMD_MAP);
+      for(i = 0; i < 32 - sizeof(uint32_t); i++) usb_putc(0);
       break;
     case S_CMD_Q_PGMNAME:
       usb_putc(S_ACK);
       l = strlen(S_PGM_NAME);
+      // TODO: get rid of string.h
       for(i = 0; i <  l; i++) usb_putc(S_PGM_NAME[i]);
       for(i = l; i < 16; i++) usb_putc(0);
       break;
@@ -307,23 +334,30 @@ void serprog_handle_command(unsigned char command) {
       usb_putc(0xff);
       break;
     case S_CMD_Q_BUSTYPE:
+      // TODO: LPC / FWH IO support via PP-Mode
       usb_putc(S_ACK);
       usb_putc(S_SUPPORTED_BUS);
       break;
     case S_CMD_Q_CHIPSIZE: break;
-    case S_CMD_Q_OPBUF:    break;
-    case S_CMD_Q_WRNMAXLEN:
-      // TODO: Buffered & Parallel / LPC / FWH IO support
+    case S_CMD_Q_OPBUF:
+      // TODO: opbuf function 0
       break;
+    case S_CMD_Q_WRNMAXLEN: break;
     case S_CMD_R_BYTE:     break;
     case S_CMD_R_NBYTES:   break;
     case S_CMD_O_INIT:     break;
-    case S_CMD_O_WRITEB:   break;
-    case S_CMD_O_WRITEN:   break;
-    case S_CMD_O_DELAY:
-      // TODO
+    case S_CMD_O_WRITEB:
+      // TODO: opbuf function 1
       break;
-    case S_CMD_O_EXEC:     break;
+    case S_CMD_O_WRITEN:
+      // TODO: opbuf function 2
+      break;
+    case S_CMD_O_DELAY:
+      // TODO: opbuf function 3
+      break;
+    case S_CMD_O_EXEC:
+      // TODO: opbuf function 4
+      break;
     case S_CMD_SYNCNOP:
       usb_putc(S_NAK);
       usb_putc(S_ACK);
@@ -350,6 +384,54 @@ void serprog_handle_command(unsigned char command) {
 
       unselect_chip();
       break;
+    case S_CMD_S_SPI_FREQ:
+      freq_ptr[0] = usb_getc();
+      freq_ptr[1] = usb_getc();
+      freq_ptr[2] = usb_getc();
+      freq_ptr[3] = usb_getc();
+      if(freq_req == 0) usb_putc(S_NAK);
+      else {
+        usb_putc(S_ACK);
+        if(freq_req >= 36000000) {
+          spi_conf(SPI_BaudRatePrescaler_2);
+          usb_putu32(36000000);
+          break;
+        }
+        if(freq_req >= 18000000) {
+          spi_conf(SPI_BaudRatePrescaler_4);
+          usb_putu32(18000000);
+          break;
+        }
+        if(freq_req >= 9000000) {
+          spi_conf(SPI_BaudRatePrescaler_8);
+          usb_putu32(9000000);
+          break;
+        }
+        if(freq_req >= 4500000) {
+          spi_conf(SPI_BaudRatePrescaler_16);
+          usb_putu32(4500000);
+          break;
+        }
+        if(freq_req >= 2250000) {
+          spi_conf(SPI_BaudRatePrescaler_32);
+          usb_putu32(2250000);
+          break;
+        }
+        if(freq_req >= 1125000) {
+          spi_conf(SPI_BaudRatePrescaler_64);
+          usb_putu32(1125000);
+          break;
+        }
+        if(freq_req >= 562500) {
+          spi_conf(SPI_BaudRatePrescaler_128);
+          usb_putu32(562500);
+          break;
+        }
+        /* Lowest available */
+        spi_conf(SPI_BaudRatePrescaler_256);
+        usb_putu32(281250);
+        break;
+      }
     default: break; // TODO: Debug malformed command
   }
 

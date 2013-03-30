@@ -1,16 +1,20 @@
 Benchmark HowTo:
-1. Profile calibration and chip recognition time:
+1. Decide how fast your flash device can run. Refer to the datasheet and set the
+   spispeed parameter accordingly. The following examples operate an EN25F16 @
+   36MHz SPI clock. This programmer can provide a maximum SPI clock of 36MHz,
+   whereas EN25F16 can operate @ 66MHz clock with normal read command.
+2. Profile calibration and chip recognition time:
    This is needed for every PC + firmware combination.
-   Command: $ time flashrom -p serprog:dev=/dev/ttyACM0:4000000
+   Command: $ time flashrom -p serprog:dev=/dev/ttyACM0:4000000,spispeed=36000000
    The result is given in the "real" field and is expected to be around 2 seconds.
-2. Profile read speed:
-   Command: $ time flashrom -p serprog:dev=/dev/ttyACM0:4000000 -r tmp.bin
+3. Profile read speed:
+   Command: $ time flashrom -p serprog:dev=/dev/ttyACM0:4000000,spispeed=36000000 -r /dev/null
    Read speed = density / (read time - calibration time)
    Should be done in a few seconds to less than one minute.
-3. Profile erase time:
-   Command: $ time flashrom -p serprog:dev=/dev/ttyACM0:4000000 -E
+4. Profile erase time:
+   Command: $ time flashrom -p serprog:dev=/dev/ttyACM0:4000000,spispeed=36000000 -E
    Erase time = real - calibration time
-4. Profile write time:
+5. Profile write time:
    Command: $ dd if=/dev/urandom of=tmp.bin bs=1024 count=density_in_kib
             $ time flashrom -p serprog:dev=/dev/ttyACM0:4000000 -w tmp.bin
    Write speed = density / (write time - 2 * read time + calibration time)
@@ -18,7 +22,7 @@ Benchmark HowTo:
    flash is empty and erase pages if needed. Then write. Then verify. So 2 read
    procedures in total.
    Some flash can be extremely slow at writing.
-5. Keep the values to yourself. I will not put them here.
+6. Keep the values to yourself. I will not put them here.
 
 Last tested with:
 flashrom v0.9.5.2-r1517

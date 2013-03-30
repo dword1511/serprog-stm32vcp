@@ -13,7 +13,10 @@
 #define VCP_DATA_SIZE         0x40                    /* Should be the same as BULK_MAX_PACKET_SIZE */
 
 /* SPI */
-#define SPI_BAUD_DIV          SPI_BaudRatePrescaler_8 /* 72MHz / 8 = 9MHz */
+/* Default SPI Clock. Set to 9MHz to support most chips.
+ * SPI1 is on APB2, which runs @ 72MHz.
+ * 72MHz / 8 = 9MHz */
+#define SPI_BAUD_DIV          SPI_BaudRatePrescaler_8 
 
 /* serprog */
 #define S_PGM_NAME            "serprog-STM32VCP"      /* The program's name, must < 16 bytes */
@@ -27,7 +30,8 @@
   (1 << S_CMD_Q_BUSTYPE) | \
   (1 << S_CMD_SYNCNOP)   | \
   (1 << S_CMD_O_SPIOP)   | \
-  (1 << S_CMD_S_BUSTYPE)   \
+  (1 << S_CMD_S_BUSTYPE) | \
+  (1 << S_CMD_S_SPI_FREQ)  \
 )
 
 /* GPIO */

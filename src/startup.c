@@ -119,8 +119,11 @@ void ResetISR(void) {
     FLASH_PrefetchBufferCmd(FLASH_PrefetchBuffer_Enable);
     FLASH_SetLatency(FLASH_Latency_2);
 
+    /* AHB Clock set to MAX */
     RCC_HCLKConfig(RCC_SYSCLK_Div1);
+    /* APB2 Clock set to MAX */
     RCC_PCLK2Config(RCC_HCLK_Div1);
+    /* APB1 Clock set to MAX (1/2 Sys Clock) */
     RCC_PCLK1Config(RCC_HCLK_Div2);
     RCC_ADCCLKConfig(RCC_PCLK2_Div6);
 
