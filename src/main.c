@@ -6,8 +6,36 @@
 #include "serprog.h"
 #include "config.h"
 
-GPIO_InitTypeDef GPIO_InitStructure;
-NVIC_InitTypeDef NVIC_InitStructure;
+GPIO_InitTypeDef GPIO_InitStructure_LED    = {
+  .GPIO_Pin                          = PIN_LED,
+  .GPIO_Speed                        = GPIO_Speed_2MHz,
+  .GPIO_Mode                         = GPIO_Mode_Out_PP,
+};
+
+GPIO_InitTypeDef GPIO_InitStructure_SPIOUT = {
+  .GPIO_Pin                          = GPIO_Pin_5 | GPIO_Pin_7,
+  .GPIO_Speed                        = GPIO_Speed_50MHz,
+  .GPIO_Mode                         = GPIO_Mode_AF_PP,
+};
+
+GPIO_InitTypeDef GPIO_InitStructure_SPIIN  = {
+  .GPIO_Pin                          = GPIO_Pin_6,
+  .GPIO_Speed                        = GPIO_Speed_50MHz,
+  .GPIO_Mode                         = GPIO_Mode_IN_FLOATING,
+};
+
+GPIO_InitTypeDef GPIO_InitStructure_SPISS  = {
+  .GPIO_Pin                          = PIN_SS,
+  .GPIO_Speed                        = GPIO_Speed_50MHz,
+  .GPIO_Mode                         = GPIO_Mode_Out_PP,
+};
+
+NVIC_InitTypeDef NVIC_InitStructure        = {
+  .NVIC_IRQChannel                   = USB_LP_CAN1_RX0_IRQn,
+  .NVIC_IRQChannelPreemptionPriority = 1,
+  .NVIC_IRQChannelSubPriority        = 0,
+  .NVIC_IRQChannelCmd                = ENABLE,
+};
 
 void serprog_handle_command(unsigned char command);
 
@@ -19,37 +47,23 @@ void delay(volatile uint32_t cycles) {
 int main(void) {
   /* Configure Clocks (GPIO and DMA clocks already enabled by startup.c) */
   RCC_PCLK2Config(RCC_HCLK_Div2);
-  RCC_APB2PeriphClockCmd(RCC_APB2Periph_SPI1, ENABLE);
   RCC_USBCLKConfig(RCC_USBCLKSource_PLLCLK_1Div5);
+  RCC_APB2PeriphClockCmd(    SPI_ENGINE_RCC, ENABLE);
   RCC_APB1PeriphClockCmd(RCC_APB1Periph_USB, ENABLE);
 
   /* Configure On-board LED */
-  GPIO_InitStructure.GPIO_Pin   = PIN_LED;
-  GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_Out_PP;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-  GPIO_Init(PORT_LED, &GPIO_InitStructure);
+  GPIO_Init(PORT_LED, &GPIO_InitStructure_LED);
 
   /* Configure SPI Port */
-  GPIO_InitStructure.GPIO_Pin   = GPIO_Pin_5 | GPIO_Pin_7;
-  GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;
-  GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_AF_PP;
-  GPIO_Init(GPIOA, &GPIO_InitStructure);
-  GPIO_InitStructure.GPIO_Pin   = GPIO_Pin_6;
-  GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_IN_FLOATING;
-  GPIO_Init(GPIOA, &GPIO_InitStructure);
-  GPIO_InitStructure.GPIO_Pin   = PIN_SS;
-  GPIO_InitStructure.GPIO_Mode  = GPIO_Mode_Out_PP;
-  GPIO_Init(PORT_SS, &GPIO_InitStructure);
+  GPIO_Init(   GPIOA, &GPIO_InitStructure_SPIOUT);
+  GPIO_Init(   GPIOA, &GPIO_InitStructure_SPIIN);
+  GPIO_Init( PORT_SS, &GPIO_InitStructure_SPISS);
 
-  /* Configure SPI Engine */
+  /* Configure SPI Engine with DMA */
   spi_conf(SPI_DEFAULT_SPEED);
 
   /* Configure USB Interrupt */
   NVIC_PriorityGroupConfig(NVIC_PriorityGroup_1);
-  NVIC_InitStructure.NVIC_IRQChannel                   = USB_LP_CAN1_RX0_IRQn;
-  NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 1;
-  NVIC_InitStructure.NVIC_IRQChannelSubPriority        = 0;
-  NVIC_InitStructure.NVIC_IRQChannelCmd                = ENABLE;
   NVIC_Init(&NVIC_InitStructure);
 
   /* Enable all peripherals */
@@ -93,14 +107,11 @@ void serprog_handle_command(unsigned char command) {
       break;
     case S_CMD_Q_PGMNAME:
       usb_putc(S_ACK);
-      //l = strlen(S_PGM_NAME);
       l = 0;
       while(S_PGM_NAME[l]) {
+        usb_putc(S_PGM_NAME[l]);
         l ++;
-	usb_putc(S_PGM_NAME[l]);
       }
-      // TODO: get rid of string.h
-      //for(i = 0; i <  l; i++) 
       for(i = l; i < 16; i++) usb_putc(0);
       break;
     case S_CMD_Q_SERBUF:

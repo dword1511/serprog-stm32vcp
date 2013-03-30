@@ -10,7 +10,8 @@ ENTRY( ResetISR )
 /* ROM_OFFSET_SIZE will be replaced with real offset by the Makefile */
 _ROM_Offset_Size = ROM_OFFSET_SIZE ;
 
-__Stack_Size = 2048 ;
+/* 1KB stack space, should be enough for most programs */
+__Stack_Size = 0x400 ;
 
 PROVIDE ( _Stack_Size = __Stack_Size ) ;
 
@@ -22,6 +23,7 @@ PROVIDE ( _Stack_Init = __Stack_Init ) ;
 /* There will be a link error if there is not this amount of RAM free at the end. */
 _Minimum_Stack_Size = 0x100 ;
 
+/* STM32F103R8 = 128KB flash + 20KB SRAM */
 MEMORY {
     FLASH (rx) : ORIGIN = 0x08000000 + ROM_OFFSET_SIZE,
                  LENGTH = FLASH_SIZE - ROM_OFFSET_SIZE
@@ -29,7 +31,7 @@ MEMORY {
     MEMORY_B1 ( rx ) : ORIGIN = 0x60000000 , LENGTH = EXT_RAM_SIZE
 }
 
-/* higher address of the user mode stack */
+/* Higher address of the user mode stack */
 _estack = 0x20000000 + SRAM_SIZE;
 
 INCLUDE "stm32f-rom.ld"

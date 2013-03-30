@@ -2,18 +2,25 @@
 #define ___CONFIG_H
 
 /* Board */
-#define PORT_LED              GPIOA
-#define PIN_LED               GPIO_Pin_0
-#define PORT_SS               GPIOA                   /* Software SS, assign as you like */
-#define PIN_SS                GPIO_Pin_4
+#define PORT_LED             GPIOA
+#define PIN_LED              GPIO_Pin_0
+#define PORT_SS              GPIOA                   /* Software SS, assign as you like */
+#define PIN_SS               GPIO_Pin_4
 
 /* USB */
-#define MASS_MEMORY_START     0x04002000
-#define BULK_MAX_PACKET_SIZE  0x00000040              /* 64 Bytes */
-#define VCP_DATA_SIZE         0x40                    /* Should be the same as BULK_MAX_PACKET_SIZE */
+#define MASS_MEMORY_START    0x04002000
+#define BULK_MAX_PACKET_SIZE 0x00000040              /* 64 Bytes */
+#define VCP_DATA_SIZE        0x40                    /* Should be the same as BULK_MAX_PACKET_SIZE */
 
 /* SPI */
-#define SPI_DEFAULT_SPEED     9000000                 /* Default SPI clock = 9MHz to support most chips.*/
+#define SPI_BUS_USED         SPI1
+#define SPI_ENGINE_RCC       RCC_APB2Periph_SPI1
+#define SPI_DEFAULT_SPEED    9000000                 /* Default SPI clock = 9MHz to support most chips.*/
+#define SPI_DR_Base          (&(SPI_BUS_USED->DR))
+#define SPI_TX_DMA_CH        DMA1_Channel3           /* SPI1 TX is only available on DMA1 CH3 */
+#define SPI_TX_DMA_FLAG      DMA1_FLAG_TC3
+#define SPI_RX_DMA_CH        DMA1_Channel2           /* SPI1 RX is only available on DMA1 CH2 */
+#define SPI_RX_DMA_FLAG      DMA1_FLAG_TC2
 
 /* serprog */
 #define S_PGM_NAME            "serprog-STM32VCP"      /* The program's name, must < 16 bytes */
