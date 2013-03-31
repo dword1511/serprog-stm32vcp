@@ -2,9 +2,22 @@ serprog-STM32VCP:
 flashrom serprog programmer based on STM32F103(C8T6) MCU and ACM protocol.
 
 ===============================
+*** Features ***
+> Hardware full-duplex SPI with DMA, up to 36MHz[WIP], down to 281.25kHz
+> Hardware USB2.0 FullSpeed PHY with buffer
+> flashrom serprog protocol
+> Efficient Virtual COM Port Emulation with USB CDC protocol
+> No UART device or settings needed, operates at any buad rates
+> Fully polled, double buffer operation
+> Read speed up to 750KB/s @ 18MHz SPI operation
+> Support SPI flash
+> Support LPC / FWH flash via parallel programming[WIP]
+
+===============================
 *** Advantages ***
-> Fast:       With ARM Cortex-M3 CPU @ 90DMIPS & on-chip USB 2.0 Full-Speed controller,
-              serprog-STM32VCP is faster than many commercial CH341A-based USB programmer.
+> Fast:       With ARM Cortex-M3 CPU @ 90DMIPS, Multi-channel DMA engine & on-chip USB
+              2.0 Full-Speed controller, serprog-STM32VCP is much faster than many
+              commercial CH341A-based USB programmers, which are widely sold in China.
               Benchmark data can be found in file PERFORMANCE.
 > Convenient: Built-in Virtual COM Port emulation, no USB-to-UART bridge needed.
               Fully compatible with flashrom serprog protocol version 0x01.

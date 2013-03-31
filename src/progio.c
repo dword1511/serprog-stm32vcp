@@ -160,13 +160,15 @@ void dma_conf_spiread(void) {
 }
 
 void dma_commit(void) {
-  /* DMA requires enabling TX channel first. */
+  /* Always enable TX channel first, especially under 36MHz clock. */
   SPI_I2S_DMACmd(SPI_BUS_USED, SPI_I2S_DMAReq_Tx | SPI_I2S_DMAReq_Rx, ENABLE);
-  DMA_Cmd(SPI_TX_DMA_CH, ENABLE);
   DMA_Cmd(SPI_RX_DMA_CH, ENABLE);
+  DMA_Cmd(SPI_TX_DMA_CH, ENABLE);
 
+  /* Wait for transfer to complete */
   while(!DMA_GetFlagStatus(SPI_RX_DMA_FLAG));
 
+  /* Clear up */
   SPI_I2S_DMACmd(SPI_BUS_USED, SPI_I2S_DMAReq_Tx | SPI_I2S_DMAReq_Rx, DISABLE);
   DMA_DeInit(SPI_RX_DMA_CH);
   DMA_DeInit(SPI_TX_DMA_CH);
