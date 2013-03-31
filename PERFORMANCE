@@ -43,12 +43,12 @@ Macronix   MX25L4005A
 Macronix   MX25L3205D  WSOP-8  SPI 1b 36MHz    4096  795.3   62.2  136.2 V
 Macronix   MX25L6445E  WSOP-8  SPI 1b 36MHz    8192  803.3   93.9  144.6 V
 Macronix   MX25L12845E WSOP-16 SPI 1b 36MHz   16384  797.7  224.7  146.8 UNTESTED
-PMC        Pm25LV010A  SOP-8   SPI 1b 9MHz     128  213.3    4.0  FAILED UNTESTED
+PMC        Pm25LV010A  SOP-8   SPI 1b 9MHz     128  213.3    4.0         UNTESTED
 PMC        Pm25LD512C
 PMC        Pm25LV512A
 Sanyo      LE25FU106B  MSOP-8W                                          X
 Sanyo      LE25FU406B  WSON-8                                           X
-SST        SST25VF040B WSON-8  SPI 1b 36MHz     512  723.2    3.9  UNTESTED
+SST        SST25VF040B WSON-8  SPI 1b 36MHz     512  723.2    3.9 FAILED UNTESTED
 STMicro    M25P05A     SOP-8
 STMicro    M25P80
 Winbond    W25Q80BV
