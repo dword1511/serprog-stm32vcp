@@ -67,7 +67,7 @@
 
    ```bash
    svn co http://stm32flash.googlecode.com/svn/trunk/ stm32flash
-   make && sudo make install.
+   make && sudo make install
    ```
 1. Modify the Makefile if needed.
 
@@ -143,7 +143,7 @@
   Erasing flash.
 * [BUSY] and [READY] on:
 
-  Writing (actually alternating fast but you cannot see it :)).
+  Writing (actually alternating fast but you cannot see it :) ).
 
 * * *
 ### Problems?
