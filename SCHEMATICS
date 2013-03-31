@@ -9,8 +9,10 @@ Board to chip:
 =================================================
 
 Board to status LED:
-
+                      [The READY LED]
 (PB0)----\/220R\/----(LED+)-|>|-(LED-)----(GND)
+                \----(LED-)-|<|-(LED+)----(3V3)
+        [The BUSY LED (Optional but recommended)]
 =================================================
 
 Board to USB:

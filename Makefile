@@ -25,6 +25,3 @@ OBJS += src/usb_prop.o
 # Do not touch
 TARGET_ARCH     = -mthumb -mcpu=cortex-m3
 include common.mk
-
-program:
-	stm32flash -b 115200 -w $(PROJECT).bin -v /dev/ttyUSB0

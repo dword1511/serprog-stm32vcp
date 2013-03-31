@@ -6,4 +6,5 @@
 *.lss
 *.map
 *.sym
+*.html
 stm32.lds

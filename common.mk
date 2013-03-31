@@ -68,6 +68,14 @@ $(PROJECT).hex: $(PROJECT).elf
 	@echo "  IHEX    " $@
 	@$(OBJCOPY) $(OBJCPFLAGS) -O ihex $< $@
 
+program: $(PROJECT).bin
+	@echo "  FLASH   " $<
+	@stm32flash -b 115200 -w $< -v /dev/ttyUSB0
+
+doc: README.md
+	@echo "  MD      " $<
+	@markdown README.md > README.html
+
 clean:
 	@echo "  CLEAN   " "."
-	@rm -f $(OBJS) $(STM32_COMM_OBJS) $(PROJECT).elf $(PROJECT).bin $(PROJECT).hex $(PROJECT).lss $(PROJECT).map $(PROJECT).sym stm32.lds
+	@rm -f $(OBJS) $(STM32_COMM_OBJS) $(PROJECT).elf $(PROJECT).bin $(PROJECT).hex $(PROJECT).lss $(PROJECT).map $(PROJECT).sym README.html stm32.lds
