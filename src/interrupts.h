@@ -1,8 +1,7 @@
-#ifndef __STM32_IT_H
-#define __STM32_IT_H
+#ifndef __INTERRUPTS_H__
+#define __INTERRUPTS_H__
 
-#include <stm32/usb/lib.h>
-#include "usb_istr.h"
+extern void USB_Istr(void);
 
 #define NMIException               EmptyVect
 
@@ -78,4 +77,4 @@
 #define DMA2_Channel3_IRQHandler   EmptyVect
 #define DMA2_Channel4_5_IRQHandler EmptyVect
 
-#endif /* __STM32_IT_H */
+#endif /* __INTERRUPTS_H__ */

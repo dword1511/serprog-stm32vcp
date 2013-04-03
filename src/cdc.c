@@ -1,13 +1,54 @@
+/* cdc.c: Minimal client-side USB CDC driver.                      */
+/* This file contains interrupt-driven USB routines and callbacks. */
+
 #include <stm32/gpio.h>
 #include <stm32/usb/lib.h>
-#include "usb_conf.h"
-#include "usb_istr.h"
 #include "config.h"
 
-/* This file handles basic libstm32usb callbacks. */
+/******************************************************
+ * Macros and declarations                            *
+ ******************************************************/
+
+#define SET_COMM_FEATURE       0x02
+#define SET_LINE_CODING        0x20
+#define GET_LINE_CODING        0x21
+#define SET_CONTROL_LINE_STATE 0x22
+
+#define EMPTY_CALLBACKS           { \
+  NOP_Process, \
+  NOP_Process, \
+  NOP_Process, \
+  NOP_Process, \
+  NOP_Process, \
+  NOP_Process, \
+  NOP_Process, \
+}
+
+typedef struct {
+  uint32_t bitrate;
+  uint8_t format;
+  uint8_t paritytype;
+  uint8_t datatype;
+} LINE_CODING;
+
+void     Device_Init(void);
+void     Device_Reset(void);
+void     SetConfiguration(void);
+RESULT   Data_Setup(uint8_t RequestNo);
+RESULT   NoData_Setup(uint8_t RequestNo);
+uint8_t *GetDeviceDescriptor(uint16_t Length);
+uint8_t *GetConfigDescriptor(uint16_t Length);
+uint8_t *GetStringDescriptor(uint16_t Length);
+RESULT   Get_Interface_Setting(uint8_t Interface, uint8_t AlternateSetting);
+uint8_t *GetLineCoding(uint16_t Length);
+uint8_t *SetLineCoding(uint16_t Length);
+
+/******************************************************
+ * Descriptors                                        *
+ ******************************************************/
 
 /* USB Standard Device Descriptor */
-const uint8_t Virtual_Com_Port_DeviceDescriptor[] = {
+const uint8_t DeviceDescriptor[] = {
   0x12,          /* bLength                 */
   0x01,          /* bDescriptorType: Device */
   0x00, 0x02,    /* bcdUSB         : 2.00   */
@@ -25,7 +66,7 @@ const uint8_t Virtual_Com_Port_DeviceDescriptor[] = {
 };
 
 /* Configuration & Interface Descriptor */
-const uint8_t Virtual_Com_Port_ConfigDescriptor[] = {
+const uint8_t ConfigDescriptor[] = {
   /* Configuration Descriptor */
   0x09,       /* bLength                        */
   0x02,       /* bDescriptorType: Configuration */
@@ -110,13 +151,13 @@ const uint8_t Virtual_Com_Port_ConfigDescriptor[] = {
 };
 
 /* USB String Descriptors */
-const uint8_t Virtual_Com_Port_StringLangID[] = {
+const uint8_t StringLangID[] = {
   0x04,      /* bLength                            */
   0x03,      /* bDescriptorType: String            */
   0x09, 0x04 /* LangID         : 1033 U.S. English */
 };
 
-const uint8_t Virtual_Com_Port_StringVendor[] = {
+const uint8_t StringVendor[] = {
   0x26,      /* bLength                 */
   0x03,      /* bDescriptorType: String */
   'S', 0, 'T', 0, 'M', 0, 'i', 0, 'c', 0, 'r', 0, 'o', 0, 'e', 0,
@@ -124,7 +165,7 @@ const uint8_t Virtual_Com_Port_StringVendor[] = {
   'c', 0, 's', 0
 };
 
-const uint8_t Virtual_Com_Port_StringProduct[] = {
+const uint8_t StringProduct[] = {
   0x3c,      /* bLength                 */
   0x03,      /* bDescriptorType: String */
   'f', 0, 'l', 0, 'a', 0, 's', 0, 'h', 0, 'r', 0, 'o', 0, 'm', 0,
@@ -133,112 +174,86 @@ const uint8_t Virtual_Com_Port_StringProduct[] = {
   '3', 0, '2', 0, 'V', 0, 'C', 0, 'P', 0
 };
 
-/* NOTE: at least on gcc you have to specify the size of array for this crap: */
-uint8_t Virtual_Com_Port_StringSerial[26] = {
+uint8_t StringSerial[26] = {
   0x1a,      /* bLength                 */
   0x03,      /* bDescriptorType: String */
-  'S', 0, 'T', 0, 'M', 0, '3', 0, '2', 0, 'F', 0, '1', 0
+  /* S/N is written during device init proccess. */
 };
 
-typedef struct {
-  uint32_t bitrate;
-  uint8_t format;
-  uint8_t paritytype;
-  uint8_t datatype;
-} LINE_CODING;
+ONE_DESCRIPTOR Device_Descriptor = {
+  (uint8_t *)DeviceDescriptor, sizeof(DeviceDescriptor)
+};
 
-#define Virtual_Com_Port_GetConfiguration          NOP_Process
-//#define Virtual_Com_Port_SetConfiguration          NOP_Process
-#define Virtual_Com_Port_GetInterface              NOP_Process
-#define Virtual_Com_Port_SetInterface              NOP_Process
-#define Virtual_Com_Port_GetStatus                 NOP_Process
-#define Virtual_Com_Port_ClearFeature              NOP_Process
-#define Virtual_Com_Port_SetEndPointFeature        NOP_Process
-#define Virtual_Com_Port_SetDeviceFeature          NOP_Process
-//#define Virtual_Com_Port_SetDeviceAddress          NOP_Process
-void Virtual_Com_Port_init(void);
-void Virtual_Com_Port_Reset(void);
-void Virtual_Com_Port_SetConfiguration(void);
-void Virtual_Com_Port_SetDeviceAddress (void);
-void Virtual_Com_Port_Status_In (void);
-void Virtual_Com_Port_Status_Out (void);
-RESULT Virtual_Com_Port_Data_Setup(uint8_t);
-RESULT Virtual_Com_Port_NoData_Setup(uint8_t);
-RESULT Virtual_Com_Port_Get_Interface_Setting(uint8_t Interface, uint8_t AlternateSetting);
-uint8_t *Virtual_Com_Port_GetDeviceDescriptor(uint16_t);
-uint8_t *Virtual_Com_Port_GetConfigDescriptor(uint16_t);
-uint8_t *Virtual_Com_Port_GetStringDescriptor(uint16_t);
-uint8_t *Virtual_Com_Port_GetLineCoding(uint16_t Length);
-uint8_t *Virtual_Com_Port_SetLineCoding(uint16_t Length);
+ONE_DESCRIPTOR Config_Descriptor = {
+  (uint8_t *)ConfigDescriptor, sizeof(ConfigDescriptor)
+};
 
-#define SEND_ENCAPSULATED_COMMAND 0x00
-#define GET_ENCAPSULATED_RESPONSE 0x01
-#define SET_COMM_FEATURE          0x02
-#define GET_COMM_FEATURE          0x03
-#define CLEAR_COMM_FEATURE        0x04
-#define SET_LINE_CODING           0x20
-#define GET_LINE_CODING           0x21
-#define SET_CONTROL_LINE_STATE    0x22
-#define SEND_BREAK                0x23
+ONE_DESCRIPTOR String_Descriptor[] = {
+  {(uint8_t *)StringLangID , sizeof(StringLangID )},
+  {(uint8_t *)StringVendor , sizeof(StringVendor )},
+  {(uint8_t *)StringProduct, sizeof(StringProduct)},
+  {(uint8_t *)StringSerial , sizeof(StringSerial )},
+};
 
-uint8_t Request = 0;
+/******************************************************
+ * Endpoints callbacks                                *
+ ******************************************************/
 
-/* Just pretend we have a physical UART interface */
+void (*pEpInt_IN [7])(void) = EMPTY_CALLBACKS;
+void (*pEpInt_OUT[7])(void) = EMPTY_CALLBACKS;
+
+/******************************************************
+ * Status                                             *
+ ******************************************************/
+
+__IO uint16_t wIstr; /* ISTR register last read value */
+
 LINE_CODING linecoding = {
-    115200, /* Baud rate     */
-    0x00,   /* 1 stop bit    */
-    0x00,   /* No parity     */
-    0x08,   /* 8 bits        */
+  115200, /* Baud rate  */
+  0x00,   /* 1 stop bit */
+  0x00,   /* No parity  */
+  0x08,   /* 8 bits     */
 };
+
+/******************************************************
+ * Device properties                                  *
+ ******************************************************/
 
 DEVICE Device_Table = {
-  EP_NUM,
-  1,
+  4, /* Endpoints  */
+  1, /* Interfaces */
 };
 
 DEVICE_PROP Device_Property = {
-  Virtual_Com_Port_init,
-  Virtual_Com_Port_Reset,
-  Virtual_Com_Port_Status_In,
-  Virtual_Com_Port_Status_Out,
-  Virtual_Com_Port_Data_Setup,
-  Virtual_Com_Port_NoData_Setup,
-  Virtual_Com_Port_Get_Interface_Setting,
-  Virtual_Com_Port_GetDeviceDescriptor,
-  Virtual_Com_Port_GetConfigDescriptor,
-  Virtual_Com_Port_GetStringDescriptor,
+  Device_Init,
+  Device_Reset,
+  NOP_Process, /* Status in  */
+  NOP_Process, /* Status out */
+  Data_Setup,
+  NoData_Setup,
+  Get_Interface_Setting,
+  GetDeviceDescriptor,
+  GetConfigDescriptor,
+  GetStringDescriptor,
   0,
   VCP_DATA_SIZE,
 };
 
 USER_STANDARD_REQUESTS User_Standard_Requests = {
-  Virtual_Com_Port_GetConfiguration,
-  Virtual_Com_Port_SetConfiguration,
-  Virtual_Com_Port_GetInterface,
-  Virtual_Com_Port_SetInterface,
-  Virtual_Com_Port_GetStatus,
-  Virtual_Com_Port_ClearFeature,
-  Virtual_Com_Port_SetEndPointFeature,
-  Virtual_Com_Port_SetDeviceFeature,
-  Virtual_Com_Port_SetDeviceAddress,
+  NOP_Process, /* Get configuration    */
+  SetConfiguration,
+  NOP_Process, /* Get interface        */
+  NOP_Process, /* Set interface        */
+  NOP_Process, /* Get status           */
+  NOP_Process, /* Clear feature        */
+  NOP_Process, /* Set endpoint feature */
+  NOP_Process, /* Set device feature   */
+  NOP_Process, /* Set device address   */
 };
 
-ONE_DESCRIPTOR Device_Descriptor = {
-  (uint8_t *)Virtual_Com_Port_DeviceDescriptor,
-  sizeof(Virtual_Com_Port_DeviceDescriptor)
-};
-
-ONE_DESCRIPTOR Config_Descriptor = {
-  (uint8_t *)Virtual_Com_Port_ConfigDescriptor,
-  sizeof(Virtual_Com_Port_ConfigDescriptor)
-};
-
-ONE_DESCRIPTOR String_Descriptor[] = {
-  {(uint8_t *)Virtual_Com_Port_StringLangID , sizeof(Virtual_Com_Port_StringLangID )},
-  {(uint8_t *)Virtual_Com_Port_StringVendor , sizeof(Virtual_Com_Port_StringVendor )},
-  {(uint8_t *)Virtual_Com_Port_StringProduct, sizeof(Virtual_Com_Port_StringProduct)},
-  {(uint8_t *)Virtual_Com_Port_StringSerial , sizeof(Virtual_Com_Port_StringSerial )},
-};
+/******************************************************
+ * Functions                                          *
+ ******************************************************/
 
 static void IntToUnicode(uint32_t value, uint8_t *pbuf) {
   uint8_t idx = 0;
@@ -251,49 +266,42 @@ static void IntToUnicode(uint32_t value, uint8_t *pbuf) {
   }
 }
 
-void Virtual_Com_Port_init(void) {
-  /* Update the serial number string descriptor with the data from the unique
-  ID*/
-  uint32_t Device_Serial0, Device_Serial1, Device_Serial2;
-
-  Device_Serial0 = *(__IO uint32_t*)(0x1FFFF7E8);
-  Device_Serial1 = *(__IO uint32_t*)(0x1FFFF7EC);
-  Device_Serial2 = *(__IO uint32_t*)(0x1FFFF7F0);
-
-  if(Device_Serial0 != 0) {
-    IntToUnicode(Device_Serial0, &Virtual_Com_Port_StringSerial[ 2]);
-    IntToUnicode(Device_Serial1, &Virtual_Com_Port_StringSerial[10]);
-    IntToUnicode(Device_Serial2, &Virtual_Com_Port_StringSerial[18]);
-  }
+void Device_Init(void) {
+  /* Update iSerial with MCU unique ID */
+  IntToUnicode(*(__IO uint32_t*)(0x1FFFF7E8), &StringSerial[ 2]);
+  IntToUnicode(*(__IO uint32_t*)(0x1FFFF7EC), &StringSerial[10]);
+  IntToUnicode(*(__IO uint32_t*)(0x1FFFF7F0), &StringSerial[18]);
 
   pInformation->Current_Configuration = 0;
 
   /* Connect the device */
-  PowerOn();
-
-  /* Perform basic device initialization operations */
-  /* USB interrupts initialization */
-  /* clear pending interrupts */
+  _SetCNTR(CNTR_FRES);
+  wInterrupt_Mask = 0;
+  _SetCNTR(wInterrupt_Mask);
   _SetISTR(0);
-  wInterrupt_Mask = IMR_MSK;
-  /* set interrupts mask */
+  wInterrupt_Mask = CNTR_RESETM | CNTR_SUSPM | CNTR_WKUPM;
   _SetCNTR(wInterrupt_Mask);
 
-  bDeviceState = UNCONNECTED;
+  /* Perform basic device initialization operations */
+  _SetISTR(0);
+  wInterrupt_Mask = CNTR_CTRM | CNTR_SOFM | CNTR_RESETM;
+  _SetCNTR(wInterrupt_Mask);
+
+  /* Device unconnected */
   led_off();
 }
 
-void Virtual_Com_Port_Reset(void) {
-  /* Set Virtual_Com_Port DEVICE as not configured */
+void Device_Reset(void) {
+  /* Set the device as not configured */
   pInformation->Current_Configuration = 0;
 
-  /* Current Feature initialization */
-  pInformation->Current_Feature = Virtual_Com_Port_ConfigDescriptor[7];
+  /* Current feature initialization */
+  pInformation->Current_Feature = ConfigDescriptor[7];
 
-  /* Set Virtual_Com_Port DEVICE with the default Interface*/
+  /* Set the device with the default Interface*/
   pInformation->Current_Interface = 0;
 
-  SetBTABLE(BTABLE_ADDRESS);
+  SetBTABLE(0x00);
 
   /* Initialize Endpoint 0 */
   SetEPType(ENDP0, EP_CONTROL);
@@ -326,40 +334,24 @@ void Virtual_Com_Port_Reset(void) {
   /* Set this device to response on default address */
   SetDeviceAddress(0);
 
-  bDeviceState = ATTACHED;
+  /* Device attached */
   led_off();
 }
 
-void Virtual_Com_Port_SetConfiguration(void) {
-  DEVICE_INFO *pInfo = &Device_Info;
-
+void SetConfiguration(void) {
   /* Device configured */
-  if(pInfo->Current_Configuration != 0) {
-    bDeviceState = CONFIGURED;
-    led_on();
-  }
+  if(Device_Info.Current_Configuration != 0) led_on();
 }
 
-void Virtual_Com_Port_SetDeviceAddress(void) {
-  bDeviceState = ADDRESSED;
-}
-
-void Virtual_Com_Port_Status_In(void) {
-  if(Request == SET_LINE_CODING) Request = 0;
-}
-
-void Virtual_Com_Port_Status_Out(void) {}
-
-RESULT Virtual_Com_Port_Data_Setup(uint8_t RequestNo) {
+RESULT Data_Setup(uint8_t RequestNo) {
   uint8_t *(*CopyRoutine)(uint16_t);
   CopyRoutine = NULL;
 
-  if(RequestNo == GET_LINE_CODING){
-    if(Type_Recipient == (CLASS_REQUEST | INTERFACE_RECIPIENT)) CopyRoutine = Virtual_Com_Port_GetLineCoding;
+  if(RequestNo == GET_LINE_CODING) {
+    if(Type_Recipient == (CLASS_REQUEST | INTERFACE_RECIPIENT)) CopyRoutine = GetLineCoding;
   }
   else if(RequestNo == SET_LINE_CODING) {
-    if(Type_Recipient == (CLASS_REQUEST | INTERFACE_RECIPIENT)) CopyRoutine = Virtual_Com_Port_SetLineCoding;
-    Request = SET_LINE_CODING;
+    if(Type_Recipient == (CLASS_REQUEST | INTERFACE_RECIPIENT)) CopyRoutine = SetLineCoding;
   }
 
   if(CopyRoutine == NULL) return USB_UNSUPPORT;
@@ -370,37 +362,36 @@ RESULT Virtual_Com_Port_Data_Setup(uint8_t RequestNo) {
   return USB_SUCCESS;
 }
 
-RESULT Virtual_Com_Port_NoData_Setup(uint8_t RequestNo) {
+RESULT NoData_Setup(uint8_t RequestNo) {
   if(Type_Recipient == (CLASS_REQUEST | INTERFACE_RECIPIENT)) {
-    if(RequestNo == SET_COMM_FEATURE) return USB_SUCCESS;
-    else if(RequestNo == SET_CONTROL_LINE_STATE) return USB_SUCCESS;
+    if((RequestNo == SET_COMM_FEATURE) | (RequestNo == SET_CONTROL_LINE_STATE)) return USB_SUCCESS;
   }
 
   return USB_UNSUPPORT;
 }
 
-uint8_t *Virtual_Com_Port_GetDeviceDescriptor(uint16_t Length) {
+uint8_t *GetDeviceDescriptor(uint16_t Length) {
   return Standard_GetDescriptorData(Length, &Device_Descriptor);
 }
 
-uint8_t *Virtual_Com_Port_GetConfigDescriptor(uint16_t Length) {
+uint8_t *GetConfigDescriptor(uint16_t Length) {
   return Standard_GetDescriptorData(Length, &Config_Descriptor);
 }
 
-uint8_t *Virtual_Com_Port_GetStringDescriptor(uint16_t Length) {
-  uint8_t wValue0 = pInformation->USBwValue0;
-  if(wValue0 > 4) return NULL;
-  else return Standard_GetDescriptorData(Length, &String_Descriptor[wValue0]);
+uint8_t *GetStringDescriptor(uint16_t Length) {
+  if(pInformation->USBwValue0 > 4) return NULL;
+
+  return Standard_GetDescriptorData(Length, &String_Descriptor[pInformation->USBwValue0]);
 }
 
-RESULT Virtual_Com_Port_Get_Interface_Setting(uint8_t Interface, uint8_t AlternateSetting) {
+RESULT Get_Interface_Setting(uint8_t Interface, uint8_t AlternateSetting) {
   if(AlternateSetting > 0) return USB_UNSUPPORT;
-  else if(Interface > 1) return USB_UNSUPPORT;
+  if(Interface > 1)        return USB_UNSUPPORT;
 
   return USB_SUCCESS;
 }
 
-uint8_t *Virtual_Com_Port_GetLineCoding(uint16_t Length) {
+uint8_t *GetLineCoding(uint16_t Length) {
   if(Length == 0) {
     pInformation->Ctrl_Info.Usb_wLength = sizeof(linecoding);
     return NULL;
@@ -408,10 +399,23 @@ uint8_t *Virtual_Com_Port_GetLineCoding(uint16_t Length) {
   return(uint8_t *)&linecoding;
 }
 
-uint8_t *Virtual_Com_Port_SetLineCoding(uint16_t Length) {
+uint8_t *SetLineCoding(uint16_t Length) {
   if(Length == 0) {
     pInformation->Ctrl_Info.Usb_wLength = sizeof(linecoding);
     return NULL;
   }
   return(uint8_t *)&linecoding;
+}
+
+/* Minimum USB interrupt handler for USB CDC */
+void USB_Istr(void) {
+  wIstr = _GetISTR();
+
+  if (wIstr & ISTR_SOF & wInterrupt_Mask) _SetISTR(CLR_SOF);
+  if (wIstr & ISTR_CTR & wInterrupt_Mask) CTR_LP();
+
+  if (wIstr & ISTR_RESET & wInterrupt_Mask) {
+    _SetISTR(CLR_RESET);
+    Device_Property.Reset();
+  }
 }

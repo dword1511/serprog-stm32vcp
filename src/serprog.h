@@ -1,5 +1,5 @@
-#ifndef __SERPROG_H_
-#define __SERPROG_H_
+#ifndef __SERPROG_H__
+#define __SERPROG_H__
 
 #define S_IFACE_VERSION   0x01 /* Version of the protocol */
 
@@ -38,4 +38,4 @@
 #define BUS_PROG          0x10
 #define BUS_NONSPI        (BUS_PARALLEL | BUS_LPC | BUS_FWH)
 
-#endif /* __SERPROG_H_ */
+#endif /* __SERPROG_H__ */

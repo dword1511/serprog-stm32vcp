@@ -2,7 +2,8 @@
 #include <stm32/gpio.h>
 #include <stm32/misc.h>
 #include <stm32/usb/lib.h>
-#include "progio.h"
+#include "io_usb.h"
+#include "io_spi.h"
 #include "serprog.h"
 #include "config.h"
 

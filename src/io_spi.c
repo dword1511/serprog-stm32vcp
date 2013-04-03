@@ -1,22 +1,24 @@
-#include <stm32/gpio.h>
 #include <stm32/spi.h>
 #include <stm32/dma.h>
-#include <stm32/usb/lib.h>
 #include "config.h"
-#include "usb_conf.h"
-#include "progio.h"
+#include "io_spi.h"
 
-/* Do not place const in front of declarations.
+/* Do not place const in front of declarations.                  *
  * const variables are stored in flash that needs a 2-cycle wait */
-uint8_t  USB_Tx_Buf[VCP_DATA_SIZE];
-uint16_t USB_Tx_ptr_in  = 0;
-
-uint8_t  USB_Rx_Buf[VCP_DATA_SIZE];
-uint16_t USB_Rx_ptr_out = 0;
-uint8_t  USB_Rx_len     = 0;
-
 uint8_t  DMA_Clk_Buf = 0;
 
+/* Refer to USB IO for bulk transfer */
+extern uint8_t  USB_Tx_Buf[];
+extern uint16_t USB_Tx_ptr_in;
+extern uint8_t  USB_Rx_Buf[];
+extern uint16_t USB_Rx_ptr_out;
+extern uint8_t  USB_Rx_len;
+
+extern void usb_putp(void);
+extern void usb_getp(void);
+extern char usb_getc(void);
+
+/* Quick init definations */
 DMA_InitTypeDef DMA_InitStructure_RX  = {
   .DMA_PeripheralBaseAddr = (uint32_t)SPI_DR_Base,
   .DMA_MemoryBaseAddr     = (uint32_t)USB_Tx_Buf,
@@ -70,85 +72,6 @@ SPI_InitTypeDef SPI_InitStructure     = {
   .SPI_CRCPolynomial      = 7,
 };
 
-/*----------------*/
-/* USB operations */
-/*----------------*/
-void usb_putp(void) {
-  /* Previous transmission complete? */
-  while(GetEPTxStatus(ENDP1) != EP_TX_NAK);
-  /* Send buffer contents */
-  UserToPMABufferCopy(USB_Tx_Buf, ENDP1_TXADDR, USB_Tx_ptr_in);
-  SetEPTxCount(ENDP1, USB_Tx_ptr_in);
-  SetEPTxValid(ENDP1);
-  /* Reset buffer pointer */
-  USB_Tx_ptr_in = 0;
-}
-
-void usb_getp(void) {
-  /* Anything new? */
-  while(GetEPRxStatus(ENDP3) != EP_RX_NAK);
-  /* Get the length */
-  USB_Rx_len = GetEPRxCount(ENDP3);
-  if(USB_Rx_len > VCP_DATA_SIZE) USB_Rx_len = VCP_DATA_SIZE;
-  /* Fetch data and fill buffer */
-  PMAToUserBufferCopy(USB_Rx_Buf, ENDP3_RXADDR, VCP_DATA_SIZE);
-  /* We are good, next? */
-  SetEPRxValid(ENDP3);
-  USB_Rx_ptr_out = 0;
-}
-
-void usb_sync(void) {
-  if(USB_Tx_ptr_in != 0) usb_putp();
-}
-
-void usb_putc(char data) {
-  /* Feed new data */
-  USB_Tx_Buf[USB_Tx_ptr_in] = data;
-  USB_Tx_ptr_in ++;
-  /* End of the buffer, send packet now */
-  if(USB_Tx_ptr_in == VCP_DATA_SIZE) usb_putp();
-}
-
-char usb_getc(void) {
-  /* End of the buffer, wait for new packet */
-  if(USB_Rx_ptr_out == USB_Rx_len) usb_getp();
-  /* Get data from the packet */
-  USB_Rx_ptr_out ++;
-  return USB_Rx_Buf[USB_Rx_ptr_out - 1];
-}
-
-uint32_t usb_getu24(void) {
-  uint32_t val = 0;
-
-  val  = (uint32_t)usb_getc() << 0;
-  val |= (uint32_t)usb_getc() << 8;
-  val |= (uint32_t)usb_getc() << 16;
-
-  return val;
-}
-
-uint32_t usb_getu32(void) {
-  uint32_t val = 0;
-
-  val  = (uint32_t)usb_getc() << 0;
-  val |= (uint32_t)usb_getc() << 8;
-  val |= (uint32_t)usb_getc() << 16;
-  val |= (uint32_t)usb_getc() << 24;
-
-  return val;
-}
-
-void usb_putu32(uint32_t ww) {
-  /* little-endian. */
-  usb_putc(ww >>  0 & 0x000000ff);
-  usb_putc(ww >>  8 & 0x000000ff);
-  usb_putc(ww >> 16 & 0x000000ff);
-  usb_putc(ww >> 24 & 0x000000ff);
-}
-
-/*----------------*/
-/* DMA operations */
-/*----------------*/
 void dma_conf_spiwrite(void) {
   DMA_Init(SPI_RX_DMA_CH, &DMA_InitStructure_RX);
   DMA_Init(SPI_TX_DMA_CH, &DMA_InitStructure_TX);
@@ -174,9 +97,6 @@ void dma_commit(void) {
   DMA_DeInit(SPI_TX_DMA_CH);
 }
 
-/*----------------*/
-/* SPI operations */
-/*----------------*/
 uint32_t spi_conf(uint32_t speed_hz) {
   static uint16_t clkdiv;
   static uint32_t relspd;
@@ -229,7 +149,7 @@ void spi_putc(uint8_t c) {
   /* transmit c on the SPI bus */
   SPI_I2S_SendData(SPI_BUS_USED, c);
 
-  /* Those useless data just needs to be collected. */
+  /* Those useless data just needs to be collected, or SPI engine will go crazy. */
   while(SPI_I2S_GetFlagStatus(SPI_BUS_USED, SPI_I2S_FLAG_RXNE) == RESET);
   SPI_I2S_ReceiveData(SPI_BUS_USED);
 }
@@ -240,6 +160,7 @@ void spi_bulk_write(uint32_t size) {
     size -= (USB_Rx_len - USB_Rx_ptr_out);
     while(USB_Rx_ptr_out != USB_Rx_len) spi_putc(usb_getc());
   }
+  /* else: size << VCP_DATA_SIZE, no bulk transfer */
 
   /* Do bulk transfer */
   while(size != 0) {
