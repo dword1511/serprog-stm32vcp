@@ -9,7 +9,8 @@ Source archives: http://dword1511.info/dword/serprog-stm32vcp/
 ### Features
 * Cheap and simple hardware:
   * a STM32F103 series MCU
-  * a crystal, a 3.3V LDO
+  * a crystal
+  * a 3.3V LDO
   * one or two LED(s)
   * some capacitors, resistors and wiring.
 * Hardware full-duplex SPI with DMA, multiple clock speeds available:
