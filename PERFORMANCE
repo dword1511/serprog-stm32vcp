@@ -6,7 +6,7 @@ Benchmark HowTo:
 2. Profile calibration and chip recognition time:
    This is needed for every PC + firmware combination.
    Command: $ time flashrom -p serprog:dev=/dev/ttyACM0:4000000,spispeed=36000000
-   The result is given in the "real" field and is expected to be around 2 seconds.
+   The result is given in the 'real' field and is expected to be around 2 seconds.
 3. Profile read speed:
    Command: $ time flashrom -p serprog:dev=/dev/ttyACM0:4000000,spispeed=36000000 -r /dev/null
    Read speed = density / (read time - calibration time)
@@ -15,6 +15,13 @@ Benchmark HowTo:
    Command: $ time flashrom -p serprog:dev=/dev/ttyACM0:4000000,spispeed=36000000 -E
    Erase time = real - calibration time
 5. Profile write time:
+   First of all, make sure your flash is already erased. Check with:
+     $ flashrom -p serprog:dev=/dev/ttyACM0:4000000,spispeed=36000000 -r /tmp/somefile.bin
+     $ hd /tmp/somefile.bin
+   And the output should be something like:
+     00000000  ff ff ff ff ff ff ff ff  ff ff ff ff ff ff ff ff  |................|
+     *
+     00800000
    Command: $ dd if=/dev/urandom of=tmp.bin bs=1024 count=density_in_kib
             $ time flashrom -p serprog:dev=/dev/ttyACM0:4000000 -w tmp.bin
    Write speed = density / (write time - 2 * read time + calibration time)
@@ -25,33 +32,34 @@ Benchmark HowTo:
 6. Keep the values to yourself. I will not put them here.
 
 Last tested with:
-flashrom v0.9.6.1-r1658 on Linux 3.2.0-39-generic (x86_64)
+Linux 3.2.0-39-generic (x86_64), Intel Core i5-430M + HM55, 8GB RAM, ST9750420AS HDD.
 Hardware configuration: STM32F103C8T6, ~5cm SPI wiring & 1.5m USB wiring.
 Calibration time counted out.
 Verification time counted out except for erasing.
 
----------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------
   Vendor  |   Flash   |Package|    Bus     |Density|Read  |Erase |Write |flashrom
-Name      |P/N        |       |T.  W. Clk  |KiB    |KiB/s |secs  |KiB/s |Support
----------------------------------------------------------------------------------
-Atmel      AT25F512A   SOP-8   SPI 1b 18MHz      64  385.5    1.1   13.9 UNTESTED
-Atmel      AT26DF161A  WSOP-8  SPI 1b 36MHz    2048  739.6   22.0  115.1 UNTESTED
-Atmel      AT45DB161D  WSOP-8  SPI 1b 36MHz    2048      -      -      - X
-Eon        EN25F05     SOP-8   SPI 1b 36MHz      64  331.6    1.0   44.4 UNTESTED
-Eon        EN25F16     DIP-8   SPI 1b 36MHz    2048  855.5   20.4  118.2 V
-GigaDevice GD25Q80     WSOP-8  SPI 1b 36MHz    1024  834.6   19.5  132.1 V
-Macronix   MX25L4005A  WSOP-8  SPI 1b 36MHz     512  598.5    4.7  115.0 V
-Macronix   MX25L3205D  WSOP-8  SPI 1b 36MHz    4096  795.3   62.2  136.2 V
-Macronix   MX25L6445E  WSOP-8  SPI 1b 36MHz    8192  803.3   93.9  144.6 V
-Macronix   MX25L12845E WSOP-16 SPI 1b 36MHz   16384  797.7  224.7  146.8 UNTESTED
-PMC        Pm25LV010A  SOP-8   SPI 1b 18MHz     128  446.0    3.7   47.4 UNTESTED
-PMC        Pm25LD512C  SOP-8   SPI 1b 18MHz      64      -      -      - X
-Sanyo      LE25FU106B  MSOP-8W SPI 1b 18MHz     128      -      -      - X
-Sanyo      LE25FU406B  WSON-8  SPI 1b 18MHz     512      -      -      - X
-SST        SST25VF040B WSOP-8  SPI 1b 36MHz     512  710.1    4.0    4.4 UNTESTED
-STMicro    M25P05A     SOP-8   SPI 1b 36MHz      64  331.6    2.0   42.6 UNTESTED
-STMicro    M25P80      WSOP-8  SPI 1b 18MHz    1024  696.1   11.5  127.3 V
-Winbond    W25Q80BV    WSOP-8  SPI 1b 36MHz    1024  752.4   11.6  132.1 V
-Winbond    W25Q16BV    WSOP-8  SPI 1b 36MHz    2048  798.1   20.8  134.9 V
-Winbond    W25Q32BV    WSOP-8  SPI 1b 36MHz    4096  775.3  112.5  170.1 V
-Winbond    W25Q64BV    WSOP-8  SPI 1b 36MHz    8192  809.6   73.3  152.9 V
+Name      |P/N        |       |T.  W. Clk  |KiB    |KiB/s |secs  |KiB/s |Version/Status
+---------------------------------------------------------------------------------------
+Atmel      AT25F512    SOP-8   SPI 1b 18MHz      64                      r1658/Prb. Err
+Atmel      AT25F512A   SOP-8   SPI 1b 18MHz      64  385.5    1.1   13.9 r1658/UNTESTED
+Atmel      AT26DF161A  WSOP-8  SPI 1b 36MHz    2048  739.6   22.0  115.1 r1658/UNTESTED
+Atmel      AT45DB161D  WSOP-8  SPI 1b 36MHz    2112  881.1   54.7  107.6 r1666p3873/UNTESTED
+Eon        EN25F05     SOP-8   SPI 1b 36MHz      64  331.6    1.0   44.4 r1658/UNTESTED
+Eon        EN25F16     DIP-8   SPI 1b 36MHz    2048  855.5   20.4  118.2 r1658/V
+GigaDevice GD25Q80     WSOP-8  SPI 1b 36MHz    1024  834.6   19.5  132.1 r1658/V
+Macronix   MX25L4005A  WSOP-8  SPI 1b 36MHz     512  598.5    4.7  115.0 r1658/V
+Macronix   MX25L3205D  WSOP-8  SPI 1b 36MHz    4096  795.3   62.2  136.2 r1658/V
+Macronix   MX25L6445E  WSOP-8  SPI 1b 36MHz    8192  803.3   93.9  144.6 r1658/V
+Macronix   MX25L12845E WSOP-16 SPI 1b 36MHz   16384  797.7  224.7  146.8 r1658/UNTESTED
+PMC        Pm25LV010A  SOP-8   SPI 1b 18MHz     128  446.0    3.7   47.4 r1658/UNTESTED
+PMC        Pm25LD512C  SOP-8   SPI 1b 18MHz      64  347.8    0.9   39.2 r1666p3925/UNTESTED
+Sanyo      LE25FU106B  MSOP-8W SPI 1b 18MHz     128      -      -      - r1658/X
+Sanyo      LE25FU406B  WSON-8  SPI 1b 18MHz     512      -      -      - r1658/X
+SST        SST25VF040B WSOP-8  SPI 1b 36MHz     512  710.1    4.0    4.4 r1658/UNTESTED
+STMicro    M25P05A     SOP-8   SPI 1b 36MHz      64  331.6    2.0   42.6 r1658/UNTESTED
+STMicro    M25P80      WSOP-8  SPI 1b 18MHz    1024  696.1   11.5  127.3 r1658/V
+Winbond    W25Q80BV    WSOP-8  SPI 1b 36MHz    1024  752.4   11.6  132.1 r1658/V
+Winbond    W25Q16BV    WSOP-8  SPI 1b 36MHz    2048  798.1   20.8  134.9 r1658/V
+Winbond    W25Q32BV    WSOP-8  SPI 1b 36MHz    4096  775.3  112.5  170.1 r1658/V
+Winbond    W25Q64BV    WSOP-8  SPI 1b 36MHz    8192  809.6   73.3  152.9 r1658/V
