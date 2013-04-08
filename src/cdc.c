@@ -1,4 +1,4 @@
-/* cdc.c: Minimal client-side USB CDC driver.                      */
+/* cdc.c: Minimal client-side USB CDC driver for STM32F103 series. */
 /* This file contains interrupt-driven USB routines and callbacks. */
 
 #include <stm32/gpio.h>
