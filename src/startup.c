@@ -23,7 +23,8 @@ void FaultVect(void) {
 // 0x00000000.
 //*****************************************************************************
 /* init value for the stack pointer. defined in linker script */
-extern void _estack;	
+extern void _estack;
+
 __attribute__ ((section(".isr_vector")))
 void (* const g_pfnVectors[])(void) = {
   &_estack,            /* The initial stack pointer*/
