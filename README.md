@@ -35,7 +35,7 @@ Source archives: http://dword1511.info/dword/serprog-stm32vcp/
 ### Advantages
 * Fast:
 
-  With ARM Cortex-M3 CPU @ 90DMIPS, 36MHz SPI engine, multi-channel DMA engine & on-chip USB 2.0 Full-Speed controller, serprog-STM32VCP is **MUCH** faster than many commercial CH341A-based USB programmers which are widely sold in China. Benchmark data can be found in the *PERFORMANCE* file.
+  With ARM Cortex-M3 CPU @ 72MHz / 61DMIPS, 36MHz SPI engine, multi-channel DMA engine & on-chip USB 2.0 Full-Speed controller, serprog-STM32VCP is **MUCH** faster than many commercial CH341A-based USB programmers which are widely sold in China. Benchmark data can be found in the *PERFORMANCE* file.
 * Convenient:
 
   Built-in Virtual COM Port emulation, no USB-to-UART bridge needed. Fully compatible with flashrom serprog protocol version 0x01.
