@@ -47,7 +47,6 @@ void delay(volatile uint32_t cycles) {
 
 int main(void) {
   /* Configure Clocks (GPIO and DMA clocks already enabled by startup.c) */
-  RCC_PCLK2Config(RCC_HCLK_Div2);
   RCC_USBCLKConfig(RCC_USBCLKSource_PLLCLK_1Div5);
   RCC_APB2PeriphClockCmd(    SPI_ENGINE_RCC, ENABLE);
   RCC_APB1PeriphClockCmd(RCC_APB1Periph_USB, ENABLE);
