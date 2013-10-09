@@ -1,9 +1,9 @@
 # serprog-stm32vcp:
 ## flashrom serprog programmer based on STM32F103 MCU & USB CDC protocol.
 
-Perbuilt firmware binaries: http://dword1511.info/dword/serprog-stm32vcp/prebuilt/
+Perbuilt firmware binaries: http://dword1511.info/dword/projects/serprog-stm32vcp/prebuilt/
 
-Source archives: http://dword1511.info/dword/serprog-stm32vcp/
+Source archives: http://dword1511.info/dword/projects/serprog-stm32vcp/
 
 * * *
 ### Features
@@ -152,5 +152,6 @@ Source archives: http://dword1511.info/dword/serprog-stm32vcp/
 
 * * *
 ### Problems?
+1. If encountered something like "Error: Cannot open serial port: Device or resource busy", please try to stop or remove modemmanager.
 1. Check your wirings and flashrom version. Do not forget to power the flash chip itself.
 1. If you are sure it is caused by something wrong in the programmer's firmware, please file a ticket.
