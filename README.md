@@ -1,7 +1,7 @@
 # serprog-stm32vcp:
 ## flashrom serprog programmer based on STM32F103 MCU & USB CDC protocol.
 
-Perbuilt firmware binaries: http://dword1511.info/dword/projects/serprog-stm32vcp/prebuilt/
+Prebuilt firmware binaries: http://dword1511.info/dword/projects/serprog-stm32vcp/prebuilt/
 
 Source archives: http://dword1511.info/dword/projects/serprog-stm32vcp/
 
